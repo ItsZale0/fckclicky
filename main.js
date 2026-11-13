@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, desktopCapturer, clipboard, Tray, Menu, nativeImage, dialog, nativeTheme, systemPreferences } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, screen, globalShortcut, desktopCapturer, clipboard, Tray, Menu, nativeImage, dialog, nativeTheme, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -1011,7 +1011,7 @@ async function setupFasterWhisper(log, modelName) {
   }
   log('    Python: ' + python);
 
-  log('2/4 Installo/aggiorno faster-whisper (pip, può richiedere qualche minuto)...');
+  log('2/4 Installo/aggiorno faster-whisper (pip, puÃ² richiedere qualche minuto)...');
   const pip = await runCmd(python, ['-m', 'pip', 'install', '--upgrade', 'faster-whisper'], 900000);
   if (!pip.ok) {
     // try --user fallback
@@ -1023,14 +1023,14 @@ async function setupFasterWhisper(log, modelName) {
   log('3/4 Creo lo script di trascrizione...');
   fs.writeFileSync(scriptPath, FASTER_WHISPER_TRANSCRIBE_PY, 'utf8');
 
-  log('4/4 Scarico/verifico il modello "' + modelName + '" (al primo uso lo pre-carico, ~145 MB)...');
+  log('4/4 Downloading/verifying model "' + modelName + '" (preloading on first use, ~145 MB)...');
   const warm = await runCmd(python, ['-c', 'from faster_whisper import WhisperModel; WhisperModel("' + modelName + '", device="cpu", compute_type="int8"); print("MODEL_OK")'], 600000);
   if (!warm.ok && /MODEL_OK/.test(warm.stderr + warm.stdout)) {
     // ok anyway
   } else if (!warm.ok && !/MODEL_OK/.test(warm.stderr + warm.stdout)) {
-    throw new Error('Pre-caricamento modello fallito: ' + (warm.stderr || warm.err || '').slice(0, 400));
+    throw new Error('Model preload failed: ' + (warm.stderr || warm.err || '').slice(0, 400));
   }
-  log('    Modello pronto.');
+  log('    Model ready.');
 
   return {
     bin: python,
@@ -1043,9 +1043,9 @@ ipcMain.handle('whisper-auto-setup', async (e, opts = {}) => {
   const log = (m) => { try { if (setupWin && !setupWin.isDestroyed()) setupWin.webContents.send('whisper-setup-log', { msg: m }); } catch {} };
   const cfg = ensureConfig();
   const model = (opts && opts.model && String(opts.model).trim()) || (cfg.local_whisper_model || 'base');
-  log('Avvio installazione automatica di faster-whisper (SYSTRAN)...');
+  log('Starting automatic faster-whisper (SYSTRAN) installation...');
   const res = await setupFasterWhisper(log, model);
-  log('✅ Completato!');
+  log('âœ… Completato!');
   return { ok: true, ...res };
 });
 
@@ -1064,8 +1064,8 @@ ipcMain.handle('whisper-check', async (e, payload = {}) => {
   };
   result.ok = !!(result.checks.bin.exists && result.checks.model.exists);
   result.message = result.ok
-    ? 'Configurazione STT locale valida.'
-    : 'Controlla il percorso di Python/eseguibile e il modello.';
+    ? 'Local STT configuration is valid.'
+    : 'Check the Python/executable path and model.';
   return result;
 });
 

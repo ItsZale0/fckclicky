@@ -1,4 +1,4 @@
-const $ = (s) => document.querySelector(s);
+﻿const $ = (s) => document.querySelector(s);
 const statusText = $('#statusText');
 const statusDot = $('#statusDot') || $('.status-dot');
 const transcriptEl = $('#transcript');
@@ -106,15 +106,14 @@ const uiSound = {
   selection() { playClick(); playTone({ freq: 700, slideTo: 1050, duration: 0.1, gain: 0.022, type: 'triangle', delay: 0.03 }); playTone({ freq: 1050, slideTo: 1400, duration: 0.14, gain: 0.018, delay: 0.08, type: 'sine' }); }
 };
 
-// One string table for the notch copy: the UI is Italian, the status line is
-// 24px tall, so labels stay short and always use the same verb.
+// Centralized notch/status copy (English, short labels for the 24px status line).
 const COPY = {
-  ready: 'Pronto · Ctrl+Alt per parlare',
-  listening: 'Ascolto…',
-  thinking: 'Elaboro…',
-  speaking: 'Parlo…',
-  tray: 'In tray · Ctrl+Alt per parlare',
-  cancelled: 'Annullato · Ctrl+Alt per parlare'
+  ready: 'Ready Â· Hold Ctrl+Alt to speak',
+  listening: 'Listeningâ€¦',
+  thinking: 'Thinkingâ€¦',
+  speaking: 'Speakingâ€¦',
+  tray: 'In tray Â· Hold Ctrl+Alt to speak',
+  cancelled: 'Cancelled Â· Hold Ctrl+Alt to speak'
 };
 
 function setStatus(msg, kind='ok') {
@@ -162,7 +161,7 @@ function blobToBase64(blob) {
   });
 }
 
-// Puntatore e microfono: attivati tramite Ctrl+Alt (nessun pulsante dedicato)
+// Pointer and microphone: activated via Ctrl+Alt (no dedicated button)
 $('#collapseBtn').addEventListener('click', () => {
   uiSound.click();
   closeSettings();
@@ -331,23 +330,23 @@ $('#saveSettingsBtn')?.addEventListener('click', async () => {
       local_whisper_args: $('#cfgWhisperArgs')?.value.trim() || '',
     };
     await window.fckclicky.saveConfig(next);
-    if (msg) msg.textContent = 'Salvato.';
-    showTranscript('Impostazioni salvate');
+    if (msg) msg.textContent = 'Saved.';
+    showTranscript('Settings saved');
   } catch (e) {
-    if (msg) msg.textContent = 'Errore salvataggio: ' + (e?.message || e);
+    if (msg) msg.textContent = 'Save error: ' + (e?.message || e);
   }
 });
 
 $('#cfgSttProvider')?.addEventListener('change', updateSttProviderUI);
 $('#pickWhisperBinBtn')?.addEventListener('click', async () => {
   try {
-    const res = await window.fckclicky.pickFile?.({ title: 'Seleziona eseguibile Whisper', filters: [{ name: 'Executables', extensions: ['exe', 'cmd', 'bat'] }, { name: 'All Files', extensions: ['*'] }] });
+    const res = await window.fckclicky.pickFile?.({ title: 'Select Whisper executable', filters: [{ name: 'Executables', extensions: ['exe', 'cmd', 'bat'] }, { name: 'All Files', extensions: ['*'] }] });
     if (res && !res.canceled && res.path && $('#cfgWhisperBin')) $('#cfgWhisperBin').value = res.path;
   } catch {}
 });
 $('#pickWhisperModelBtn')?.addEventListener('click', async () => {
   try {
-    const res = await window.fckclicky.pickFile?.({ title: 'Seleziona modello Whisper', filters: [{ name: 'Models', extensions: ['bin', 'pt', 'gguf', 'onnx'] }, { name: 'All Files', extensions: ['*'] }] });
+    const res = await window.fckclicky.pickFile?.({ title: 'Select Whisper model', filters: [{ name: 'Models', extensions: ['bin', 'pt', 'gguf', 'onnx'] }, { name: 'All Files', extensions: ['*'] }] });
     if (res && !res.canceled && res.path && $('#cfgWhisperModel')) $('#cfgWhisperModel').value = res.path;
   } catch {}
 });
@@ -401,7 +400,7 @@ async function loadModelsByType(type) {
     if (!cachedModels) cachedModels = normalizeModels(await window.fckclicky.aiTest());
     if (!cachedModels.length) {
       const raw = await window.fckclicky.aiTest().catch(() => null);
-      if (msg) msg.textContent = 'Nessun modello trovato in /models. Controlla Base URL/API Key.';
+      if (msg) msg.textContent = 'No models found in /models. Check Base URL and API key.';
       try { window.fckclicky?.log?.('models raw: ' + JSON.stringify(raw)); } catch {}
       return;
     }
@@ -426,18 +425,18 @@ async function loadModelsByType(type) {
 
     if (msg) {
       if (filtered.length) msg.textContent = `${filtered.length} modelli caricati nel menu (${type === 'all' ? 'tutti' : type}).`;
-      else msg.textContent = `Filtro ${type}: nessuna corrispondenza, mostrati tutti i ${cachedModels.length} modelli disponibili.`;
+      else msg.textContent = `Filter ${type}: no matches, showing all ${cachedModels.length} available models.`;
     }
     // Keep settings window tall enough while settings are open
     if (settingsOpen) window.fckclicky?.setWindowSize?.({ width: 560, height: 780, animate: false });
-  } catch (e) {    if (msg) msg.textContent = 'Errore caricamento modelli: ' + (e?.message || e);
+  } catch (e) {    if (msg) msg.textContent = 'Error loading models: ' + (e?.message || e);
     try { window.fckclicky?.log?.('loadModels error: ' + (e?.stack || e?.message || e)); } catch {}
   }
 }
 
-// I modelli vengono caricati automaticamente nei menu a tendina all'apertura impostazioni.
+// Models are loaded automatically in dropdowns when settings open.
 
-// Ascolto attivato tramite Ctrl+Alt (hold)
+// Listening activated via Ctrl+Alt (hold)
 
 // ===== Voice Mode =====
 // Click or Ctrl+Alt+V toggles listening; hold behavior removed to avoid accidental stops.
@@ -447,7 +446,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Interrompi il flusso di ascolto attivo se presente
+    // Stop active listening flow if present
     if (recording) {
       stopVoice();
       setStatus(COPY.cancelled, 'ok');
@@ -476,18 +475,18 @@ function replayNotchEntrance() {
 try { window.fckclicky?.onUiShown?.(replayNotchEntrance); } catch {}
 
 window.fckclicky?.onAssistantHoldStart?.(() => {
-  // Ctrl+Alt premuto: avvia ascolto (push-to-talk)
+  // Ctrl+Alt pressed: start listening (push-to-talk)
   replayNotchEntrance();
   voiceHoldActive = true;
   try { window.fckclicky?.log?.('hold-start received'); } catch {}
   if (!recording) {
     setStatus(COPY.listening, 'listening');
-    showTranscript('Parla ora, rilascia per inviare', 12000);
+    showTranscript('Speak now, release to send', 12000);
     startVoice().catch((e) => { try { window.fckclicky?.log?.('startVoice rejected: ' + (e?.message || e)); } catch {} });
   }
 });
 window.fckclicky?.onAssistantHoldStop?.(() => {
-  // Rilascio Ctrl+Alt: ferma ascolto e invia
+  // Ctrl+Alt released: stop listening and send
   voiceHoldActive = false;
   try { window.fckclicky?.log?.('hold-stop received, recording=' + recording + ' pending=' + micRequestPending); } catch {}
   if (recording) {
@@ -495,7 +494,7 @@ window.fckclicky?.onAssistantHoldStop?.(() => {
   } else if (micRequestPending) {
     // mic still initializing; startVoice will abort once stream arrives
     setStatus(COPY.ready, 'ok');
-    showTranscript('Rilascio troppo rapido: tieni premuto più a lungo', 4000);
+    showTranscript('Released too quickly: hold a bit longer', 4000);
   } else {
     setStatus(COPY.ready, 'ok');
   }
@@ -530,7 +529,7 @@ async function startVoice() {
   micRequestPending = true;
   try {
     try { window.fckclicky?.log?.('startVoice: requesting microphone'); } catch {}
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microfono non supportato (getUserMedia assente)');
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone not supported (getUserMedia unavailable)');
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
@@ -554,18 +553,18 @@ async function startVoice() {
     const mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
       ? 'audio/webm;codecs=opus'
       : (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
-    if (!mime) throw new Error('Nessun formato audio supportato (webm/opus mancante)');
+    if (!mime) throw new Error('No supported audio format available (webm/opus missing)');
     mediaRecorder = new MediaRecorder(recordingStream, { mimeType: mime });
     mediaRecorder.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) audioChunks.push(ev.data); };
     mediaRecorder.onerror = (ev) => {
       try { window.fckclicky?.log?.('MediaRecorder error: ' + (ev?.error?.message || ev?.error)); } catch {}
-      showTranscript('Errore registrazione: ' + (ev?.error?.message || 'sconosciuto'), 12000);
+      showTranscript('Recording error: ' + (ev?.error?.message || 'unknown'), 12000);
     };
     mediaRecorder.start(100); // Collect data every 100ms
     recording = true;
     uiSound.listenStart();
     setStatus(COPY.listening, 'listening');
-    showTranscript('Ascolto… rilascia Ctrl+Alt per inviare');
+    showTranscript('Listeningâ€¦ release Ctrl+Alt to send');
     try { window.fckclicky?.log?.('startVoice: recording started, mime=' + mime); } catch {}
   } catch (err) {
     micRequestPending = false;
@@ -573,11 +572,11 @@ async function startVoice() {
     uiSound.error();
     const name = err?.name ? ` [${err.name}]` : '';
     const msg = err?.message || String(err);
-    const full = 'Errore microfono' + name + ': ' + msg;
+    const full = 'Microphone error' + name + ': ' + msg;
     setStatus(full.slice(0, 80), 'error');
     console.error('[renderer] mic error', err?.stack || err);
     try { window.fckclicky?.log?.('mic error: ' + (err?.stack || err?.message || err)); } catch {}
-    showTranscript(full + ' — Controlla Privacy > Microfono Windows, input predefinito e permessi app.', 16000);
+    showTranscript(full + ' â€” Check Windows Privacy > Microphone, default input device, and app permissions.', 16000);
     cleanupRecording();
   }
 }
@@ -602,7 +601,7 @@ async function stopVoice() {
   recording = false;
   uiSound.listenStop();
   setStatus(COPY.thinking, 'thinking');
-  showTranscript('Elaboro…');
+  showTranscript('Processingâ€¦');
   try { window.fckclicky?.log?.('stopVoice: stopping recorder'); } catch {}
 
   try {
@@ -620,7 +619,7 @@ async function stopVoice() {
       try { window.fckclicky?.log?.('voice: no audio chunks recorded, mime=' + mimeType + ' chunks=' + audioChunks.length); } catch {}
       uiSound.error();
       setStatus(COPY.ready, 'ok');
-      showTranscript('Nessun audio registrato. Tieni premuto Ctrl+Alt un po’ più a lungo e riprova.', 10000);
+      showTranscript('No audio recorded. Hold Ctrl+Alt a bit longer and try again.', 10000);
       return;
     }
 
@@ -661,7 +660,7 @@ async function stopVoice() {
       }
     }
 
-    answer = (answer || '').trim() || 'Nessuna risposta dal modello.';
+    answer = (answer || '').trim() || 'No response from the model.';
     uiSound.success();
     setStatus(COPY.ready, 'ok');
     showTranscript(answer, 15000);
@@ -689,8 +688,8 @@ async function stopVoice() {
     uiSound.error();
     const msg = err?.stack || err?.message || String(err);
     try { window.fckclicky?.log?.('voice flow error: ' + msg); } catch {}
-    setStatus(('Errore: ' + (err?.message || msg)).slice(0, 200), 'error');
-    showTranscript('Errore: ' + msg, 20000);
+    setStatus(('Error: ' + (err?.message || msg)).slice(0, 200), 'error');
+    showTranscript('Error: ' + msg, 20000);
   }
 }
 
@@ -720,16 +719,16 @@ window.addEventListener('error', (e) => {
   const msg = e?.error?.stack || e?.error?.message || e?.message || String(e?.error || e);
   console.error('window.error', e?.error || e);
   try { window.fckclicky?.log?.('window.error: ' + msg); } catch {}
-  setStatus(('Errore: ' + String(e?.error?.message || e?.message || msg)).slice(0, 200), 'error');
-  showTranscript('Errore: ' + msg, 30000);
+  setStatus(('Error: ' + String(e?.error?.message || e?.message || msg)).slice(0, 200), 'error');
+  showTranscript('Error: ' + msg, 30000);
 });
 window.addEventListener('unhandledrejection', (e) => {
   const r = e?.reason;
   const msg = r?.stack || r?.message || (typeof r === 'string' ? r : JSON.stringify(r)) || String(r);
   console.error('unhandledrejection', r || e);
   try { window.fckclicky?.log?.('unhandledrejection: ' + msg); } catch {}
-  setStatus(('Errore: ' + String(r?.message || msg)).slice(0, 200), 'error');
-  showTranscript('Errore: ' + msg, 30000);
+  setStatus(('Error: ' + String(r?.message || msg)).slice(0, 200), 'error');
+  showTranscript('Error: ' + msg, 30000);
 });
 
 function cancelAssistant() {
@@ -747,7 +746,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
-    // Esc: chiudi/annulla tutto senza rompere lo stato
+    // Esc: close/cancel everything without breaking state
     uiSound.close();
     cancelAssistant();
     window.fckclicky?.hideNotch?.();

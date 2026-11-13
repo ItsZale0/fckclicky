@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -66,7 +66,7 @@
       --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-opacity='.7' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
 
-    /* Light theme — follows the OS (and the .theme-light class from IPC) */
+    /* Light theme Ã¢â‚¬â€ follows the OS (and the .theme-light class from IPC) */
     @media (prefers-color-scheme: light) {
       :root {
         --layer: rgba(255, 255, 255, 0.7);
@@ -137,7 +137,7 @@
     }
 
     /* =========================================================
-       Notch bar — Acrylic flyout, WinUI elevation + hairline
+       Notch bar Ã¢â‚¬â€ Acrylic flyout, WinUI elevation + hairline
        ========================================================= */
     #notch {
       position: fixed;
@@ -291,7 +291,7 @@
     .icon-btn.close:active { background: #b12a1c; }
 
     /* =========================================================
-       Transcript / detail surface — WinUI TeachingTip
+       Transcript / detail surface Ã¢â‚¬â€ WinUI TeachingTip
        ========================================================= */
     #transcript {
       position: fixed;
@@ -327,7 +327,7 @@
     }
 
     /* =========================================================
-       Settings flyout — Fluent controls
+       Settings flyout Ã¢â‚¬â€ Fluent controls
        ========================================================= */
     .flyout {
       position: fixed;
@@ -484,7 +484,7 @@
       .grid-2 { grid-template-columns: 1fr; }
     }
 
-    /* Buttons — WinUI 3 standard + accent */
+    /* Buttons Ã¢â‚¬â€ WinUI 3 standard + accent */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -607,7 +607,7 @@
     /* Reduced motion */
     /* Reduced motion (Windows "Animation effects" off): we still fade things in
        softly instead of snapping, but drop movement, scale and blur. Turning on
-       "Animazioni complete" in Settings re-enables the full choreography. */
+       "Full animations" in Settings re-enables the full choreography. */
     @media (prefers-reduced-motion: reduce) {
       html:not(.force-motion) *,
       html:not(.force-motion) *::before,
@@ -651,89 +651,89 @@
 
     <div class="status" aria-live="polite">
       <span class="status-dot" id="statusDot" aria-hidden="true"></span>
-      <span id="statusText">Pronto • premi Ctrl+Alt per parlare</span>
+      <span id="statusText">Ready Ã‚Â· Hold Ctrl+Alt to speak</span>
     </div>
 
     <div class="controls">
-      <button class="icon-btn" id="settingsBtn" title="Impostazioni" aria-label="Apri impostazioni">
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
         <span class="glyph" aria-hidden="true">&#xE713;</span>
       </button>
-      <button class="icon-btn" id="collapseBtn" title="Nascondi nella tray" aria-label="Nascondi nella tray">
+      <button class="icon-btn" id="collapseBtn" title="Hide to tray" aria-label="Hide to tray">
         <span class="glyph" aria-hidden="true">&#xE921;</span>
       </button>
-      <button class="icon-btn close" id="quitBtn" title="Chiudi (resta nella tray)" aria-label="Chiudi e resta nella tray">
+      <button class="icon-btn close" id="quitBtn" title="Close (stay in tray)" aria-label="Close and stay in tray">
         <span class="glyph" aria-hidden="true">&#xE8BB;</span>
       </button>
     </div>
   </div>
 
-  <div id="settingsPanel" class="flyout" role="dialog" aria-label="Impostazioni FckClicky" style="display:none;">
+  <div id="settingsPanel" class="flyout" role="dialog" aria-label="FckClicky Settings" style="display:none;">
     <div class="flyout-head">
       <div class="flyout-title">
         <span class="glyph" aria-hidden="true">&#xE713;</span>
-        Impostazioni
+        Settings
       </div>
-      <button id="closeSettingsBtn" class="icon-btn close" title="Chiudi" aria-label="Chiudi impostazioni">
+      <button id="closeSettingsBtn" class="icon-btn close" title="Close" aria-label="Close settings">
         <span class="glyph" aria-hidden="true">&#xE8BB;</span>
       </button>
     </div>
 
     <div class="flyout-body">
       <section class="group">
-        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE774;</span> API remota</h2>
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE774;</span> Remote API</h2>
         <label class="field">
           <span class="label">Base URL</span>
           <input id="cfgBaseUrl" class="textbox" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
         </label>
         <label class="field">
-          <span class="label">API Key</span>
-          <input id="cfgApiKey" class="textbox" type="password" placeholder="sk-…" />
+          <span class="label">API key</span>
+          <input id="cfgApiKey" class="textbox" type="password" placeholder="sk-Ã¢â‚¬Â¦" />
         </label>
       </section>
 
       <section class="group">
-        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE720;</span> Riconoscimento vocale</h2>
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE720;</span> Speech recognition</h2>
         <label class="field">
-          <span class="label">Provider STT</span>
+          <span class="label">STT provider</span>
           <select id="cfgSttProvider" class="combo">
             <option value="remote">Remote API (/audio/transcriptions)</option>
-            <option value="local_whisper">Locale — faster-whisper</option>
+            <option value="local_whisper">Local - faster-whisper</option>
           </select>
         </label>
 
         <div id="localWhisperFields" style="display:none;">
           <label class="field">
-            <span class="label">Percorso python.exe</span>
+            <span class="label">Path to python.exe</span>
             <div class="row">
-              <input id="cfgWhisperBin" class="textbox" spellcheck="false" placeholder="C:\Users\tu\AppData\Local\Programs\Python\Python312\python.exe" />
-              <button id="pickWhisperBinBtn" class="btn" type="button" title="Sfoglia" aria-label="Sfoglia python.exe">Sfoglia…</button>
+              <input id="cfgWhisperBin" class="textbox" spellcheck="false" placeholder="C:\Users\you\AppData\Local\Programs\Python\Python312\python.exe" />
+              <button id="pickWhisperBinBtn" class="btn" type="button" title="Browse" aria-label="Browse for python.exe">Browse</button>
             </div>
           </label>
           <label class="field">
-            <span class="label">Modello faster-whisper</span>
+            <span class="label">faster-whisper model</span>
             <input id="cfgWhisperModel" class="textbox" spellcheck="false" placeholder="base (tiny / base / small / medium)" />
           </label>
           <label class="field">
-            <span class="label">Argomenti (opzionale, usa {model} {input} {output})</span>
-            <input id="cfgWhisperArgs" class="textbox" spellcheck="false" placeholder='"C:\…\transcribe.py" {input} {model}' />
+            <span class="label">Arguments (optional, use {model} {input} {output})</span>
+            <input id="cfgWhisperArgs" class="textbox" spellcheck="false" placeholder='"C:\Ã¢â‚¬Â¦\transcribe.py" {input} {model}' />
           </label>
-          <div class="group-hint">Lascia vuoto per usare lo script generato dal setup. L’audio viene passato come file temporaneo.</div>
+          <div class="group-hint">Leave empty to use the script generated by setup. Audio is passed as a temporary file.</div>
         </div>
       </section>
 
       <section class="group">
-        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE790;</span> Aspetto</h2>
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE790;</span> Appearance</h2>
         <label class="check-row">
           <input id="cfgMotionFull" type="checkbox" />
           <span>
-            <span>Animazioni complete</span>
-            <span class="check-hint">Movimento e transizioni fluide stile Apple. Se Windows ha le animazioni disattivate, l'interfaccia resta in modalità calma.</span>
+            <span>Full animations</span>
+            <span class="check-hint">Smooth, fluid motion and transitions. If Windows animations are turned off, the interface stays in calm mode.</span>
           </span>
         </label>
       </section>
 
       <section class="group">
-        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE8A5;</span> Modelli</h2>
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE8A5;</span> Models</h2>
         <div class="grid-2">
           <label class="field">
             <span class="label">Chat</span>
@@ -755,11 +755,11 @@
       </section>
 
       <div class="flyout-foot">
-        <button id="openSetupBtn" class="btn" type="button" title="Apri la configurazione iniziale">
-          <span class="glyph" aria-hidden="true">&#xE896;</span> Setup…
+        <button id="openSetupBtn" class="btn" type="button" title="Open initial setup">
+          <span class="glyph" aria-hidden="true">&#xE896;</span> SetupÃ¢â‚¬Â¦
         </button>
         <button id="saveSettingsBtn" class="btn accent" type="button">
-          <span class="glyph" aria-hidden="true">&#xE73E;</span> Salva
+          <span class="glyph" aria-hidden="true">&#xE73E;</span> Save
         </button>
       </div>
       <div id="settingsMsg" class="status-line" role="status" aria-live="polite"></div>

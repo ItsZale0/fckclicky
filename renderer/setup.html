@@ -1,5 +1,5 @@
-﻿<!doctype html>
-<html lang="it">
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -357,17 +357,17 @@
     <header class="app-head">
       <div class="app-icon glyph" aria-hidden="true">&#xE8BD;</div>
       <div>
-        <h1>Setup di FckClicky</h1>
-        <p class="sub">Configura il riconoscimento vocale. Potrai modificare tutto dalle impostazioni, anche dopo.</p>
+        <h1>FckClicky Setup</h1>
+        <p class="sub">Configure speech recognition. You can change everything later in Settings.</p>
       </div>
     </header>
 
     <section class="section">
-      <h2><span class="glyph" aria-hidden="true">&#xE720;</span> Riconoscimento vocale</h2>
+      <h2><span class="glyph" aria-hidden="true">&#xE720;</span> Speech recognition</h2>
       <label class="field">Provider
         <select id="sttProvider">
-          <option value="remote">Remote API — OpenAI-compatible (/audio/transcriptions)</option>
-          <option value="local_whisper">Locale — faster-whisper (SYSTRAN)</option>
+          <option value="remote">Remote API Ã¢â‚¬â€ OpenAI-compatible (/audio/transcriptions)</option>
+          <option value="local_whisper">Locale Ã¢â‚¬â€ faster-whisper (SYSTRAN)</option>
         </select>
       </label>
 
@@ -376,76 +376,76 @@
           <input id="baseUrl" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
         </label>
         <label class="field">API Key (opzionale)
-          <input id="apiKey" type="password" placeholder="sk-…" />
+          <input id="apiKey" type="password" placeholder="sk-Ã¢â‚¬Â¦" />
         </label>
-        <label class="field">Modello STT remoto
+        <label class="field">Model STT remoto
           <input id="sttModel" spellcheck="false" placeholder="auto" />
         </label>
       </div>
 
       <div id="localFields" class="hidden">
         <div class="callout">
-          <div class="title"><span class="glyph" aria-hidden="true">&#xE896;</span> Installazione automatica (consigliata)</div>
+          <div class="title"><span class="glyph" aria-hidden="true">&#xE896;</span> Automatic installation (recommended)</div>
           <div class="muted" style="margin-bottom:10px;">
-            Installa <strong>faster-whisper</strong> via pip, crea lo script di trascrizione in
-            <code>%LOCALAPPDATA%\FckClicky\whisper\transcribe.py</code> e pre-carica il modello.
-            Serve <strong>Python 3.10+</strong> installato con “Add python.exe to PATH”.
+            Installs <strong>faster-whisper</strong> via pip, creates the transcription script at
+            <code>%LOCALAPPDATA%\FckClicky\whisper\transcribe.py</code> and preloads the model.
+            Serve <strong>Python 3.10+</strong> installato con Ã¢â‚¬Å“Add python.exe to PATHÃ¢â‚¬Â.
           </div>
-          <label class="field">Modello faster-whisper
+          <label class="field">Model faster-whisper
             <select id="autoModel">
-              <option value="tiny">tiny — velocissimo (~75 MB)</option>
-              <option value="base" selected>base — consigliato (~145 MB)</option>
-              <option value="small">small — più preciso (~465 MB)</option>
-              <option value="medium">medium — massimo (~1.5 GB, lento su CPU)</option>
+              <option value="tiny">tiny - fastest (~75 MB)</option>
+              <option value="base" selected>base - recommended (~145 MB)</option>
+              <option value="small">small - more accurate (~465 MB)</option>
+              <option value="medium">medium - highest (~1.5 GB, slow on CPU)</option>
             </select>
           </label>
           <div style="margin-top:10px;">
             <button id="autoSetup" class="btn accent" type="button">
-              <span class="glyph" aria-hidden="true">&#xE896;</span> Installa faster-whisper automaticamente
+              <span class="glyph" aria-hidden="true">&#xE896;</span> Install faster-whisper automatically
             </button>
           </div>
           <pre id="autoLog" class="hidden"></pre>
         </div>
 
-        <label class="field">Percorso <code>python.exe</code>
+        <label class="field">Path to <code>python.exe</code>
           <div class="row">
-            <input id="whisperBin" spellcheck="false" placeholder="C:\Users\tu\AppData\Local\Programs\Python\Python312\python.exe" />
-            <button id="pickBin" class="btn" type="button">Sfoglia…</button>
+            <input id="whisperBin" spellcheck="false" placeholder="C:\Users\you\AppData\Local\Programs\Python\Python312\python.exe" />
+            <button id="pickBin" class="btn" type="button">Browse</button>
           </div>
         </label>
-        <label class="field">Modello faster-whisper (nome)
+        <label class="field">Model faster-whisper (nome)
           <input id="whisperModel" spellcheck="false" placeholder="base" />
         </label>
         <label class="field">Argomenti (opzionale, usa {model} {input} {output})
-          <input id="whisperArgs" spellcheck="false" placeholder='"C:\…\transcribe.py" {input} {model}' />
+          <input id="whisperArgs" spellcheck="false" placeholder='"C:\Ã¢â‚¬Â¦\transcribe.py" {input} {model}' />
         </label>
-        <div class="muted">Clicky salva l’audio in un file temporaneo, lo passa a faster-whisper e legge la trascrizione da stdout.</div>
+        <div class="muted">FckClicky saves audio to a temporary file, passes it to faster-whisper, and reads the transcript from stdout.</div>
         <div style="margin-top:10px;">
           <button id="checkWhisper" class="btn" type="button">
-            <span class="glyph" aria-hidden="true">&#xE73E;</span> Verifica configurazione
+            <span class="glyph" aria-hidden="true">&#xE73E;</span> Verify configuration
           </button>
         </div>
 
         <details>
-          <summary><span class="glyph" aria-hidden="true">&#xE76C;</span> Guida manuale (installare faster-whisper a mano)</summary>
+          <summary><span class="glyph" aria-hidden="true">&#xE76C;</span> Manual guide (install faster-whisper by hand)</summary>
           <div class="body muted">
-            <strong>faster-whisper (SYSTRAN)</strong> — <a href="https://github.com/SYSTRAN/faster-whisper">github.com/SYSTRAN/faster-whisper</a>
+            <strong>faster-whisper (SYSTRAN)</strong> Ã¢â‚¬â€ <a href="https://github.com/SYSTRAN/faster-whisper">github.com/SYSTRAN/faster-whisper</a>
             <ol>
-              <li>Installa <strong>Python 3.10+</strong> da <a href="https://www.python.org/downloads/">python.org</a> — spunta <code>Add python.exe to PATH</code></li>
-              <li>Nel terminale: <code>pip install -U faster-whisper</code><br>
-                (il modello si scarica automaticamente al primo utilizzo, nella cache di Python/Hugging Face)</li>
-              <li>Incolla il percorso di <code>python.exe</code> nel campo qui sopra (pulsante “Sfoglia”). Esempio: <code>C:\Users\&lt;tu&gt;\AppData\Local\Programs\Python\Python312\python.exe</code></li>
-              <li>Scegli il modello: <code>tiny</code>, <code>base</code> (consigliato), <code>small</code>, <code>medium</code>…</li>
-              <li>Argomenti: lascia vuoto (Clicky usa lo script generato) oppure inserisci i tuoi, es. <code>"C:\tools\transcribe.py" {input} {model}</code></li>
+              <li>Installa <strong>Python 3.10+</strong> da <a href="https://www.python.org/downloads/">python.org</a> Ã¢â‚¬â€ spunta <code>Add python.exe to PATH</code></li>
+              <li>In a terminal: <code>pip install -U faster-whisper</code><br>
+                (the model is downloaded automatically on first use, into the Python/Hugging Face cache)</li>
+              <li>Paste the path to <code>python.exe</code> in the field above (Browse). Example: <code>C:\Users\&lt;you&gt;\AppData\Local\Programs\Python\Python312\python.exe</code></li>
+              <li>Choose a model: <code>tiny</code>, <code>base</code> (recommended), <code>small</code>, <code>medium</code>.</li>
+              <li>Arguments: leave empty (FckClicky uses the generated script) or provide your own, e.g. <code>"C:\tools\transcribe.py" {input} {model}</code></li>
             </ol>
-            <strong>Comando di test (opzionale)</strong>
+            <strong>Test command (optional)</strong>
             <pre>python -c "from faster_whisper import WhisperModel; m=WhisperModel('base', device='cpu', compute_type='int8'); s,info=m.transcribe('audio.wav', vad_filter=True); print(' '.join(x.text for x in s))"</pre>
-            <strong>Suggerimenti</strong>
+            <strong>Tips</strong>
             <ul>
-              <li><code>device='cpu', compute_type='int8'</code> è il miglior compromesso su CPU</li>
-              <li>GPU: <code>device='cuda', compute_type='float16'</code> con CUDA + <code>pip install faster-whisper[cuda]</code></li>
-              <li>Italiano: <code>base</code> è già buono, <code>small</code> è più preciso</li>
-              <li>Con più versioni di Python, seleziona il <code>python.exe</code> corretto con “Sfoglia”</li>
+              <li><code>device='cpu', compute_type='int8'</code> is the best trade-off on CPU</li>
+              <li>GPU: <code>device='cuda', compute_type='float16'</code> with CUDA + <code>pip install faster-whisper[cuda]</code></li>
+              <li>For English: <code>base</code> is usually good, <code>small</code> is more accurate</li>
+              <li>If you have multiple Python versions, select the correct <code>python.exe</code> with "Browse".</li>
             </ul>
           </div>
         </details>
@@ -453,11 +453,11 @@
     </section>
 
     <section class="section">
-      <h2><span class="glyph" aria-hidden="true">&#xE946;</span> Come si usa</h2>
+      <h2><span class="glyph" aria-hidden="true">&#xE946;</span> How to use</h2>
       <div class="muted">
-        • Tieni premuto <strong>Ctrl+Alt</strong> e parla; rilascia per inviare.<br>
-        • Con <strong>Ctrl+Alt</strong> attivo, <strong>cerchia un’area</strong> dello schermo per selezionarla.<br>
-        • Chat, vision e TTS possono restare su API remote anche scegliendo faster-whisper locale per lo STT.
+        Ã¢â‚¬Â¢ Hold <strong>Ctrl+Alt</strong> to speak (push-to-talk), then release to send.<br>
+        Ã¢â‚¬Â¢ Con <strong>Ctrl+Alt</strong> attivo, <strong>cerchia unÃ¢â‚¬â„¢area</strong> dello schermo per selezionarla.<br>
+        Ã¢â‚¬Â¢ Chat, vision e TTS possono restare su API remote anche scegliendo faster-whisper locale per lo STT.
       </div>
     </section>
 
@@ -466,7 +466,7 @@
     <div class="actions">
       <button id="skip" class="btn" type="button">Salta (usa i default)</button>
       <button id="save" class="btn accent" type="button">
-        <span class="glyph" aria-hidden="true">&#xE73E;</span> Salva e continua
+        <span class="glyph" aria-hidden="true">&#xE73E;</span> Save and continue
       </button>
     </div>
   </div>

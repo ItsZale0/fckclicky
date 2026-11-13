@@ -1,18 +1,27 @@
-# Security Policy
+# Security policy
 
 ## Supported versions
 
-This project is provided as-is. Security fixes, when available, are applied to the latest state of the default branch and releases.
+Security fixes, when provided, target the latest state of the default branch and current releases.
 
 ## Reporting a vulnerability
 
-If you discover a security issue, **please do not open a public issue** with exploit details.
+Please **do not** disclose security vulnerabilities in public issues.
 
-- Use GitHub’s private vulnerability reporting for this repository if enabled.
-- Otherwise, contact the repository maintainer privately with: a description, impact, reproduction steps, and any suggested fix.
+- Prefer GitHub **private vulnerability reporting** for this repository if it is enabled.
+- Otherwise, contact the maintainer privately with: a clear description, potential impact, affected components/versions, reproduction steps, and any suggested mitigation.
 
-We will acknowledge reports when possible and work on a remediation.
+Reports will be reviewed on a best-effort basis.
 
-## Scope notes
+## Security considerations
 
-FckClicky can access the screen, microphone, local files/paths you configure, and network endpoints/APIs you configure (STT/LLM/vision/TTS). Review your configuration and only use trusted endpoints and models. Runtime secrets/config are stored locally (e.g. `%LOCALAPPDATA%\FckClicky\config.json`)—protect your machine and accounts accordingly.
+FckClicky may, depending on configuration and use:
+- Capture selected screen regions
+- Record microphone audio (push-to-talk)
+- Read/write local configuration and helper files
+- Communicate with user-configured network endpoints (e.g. STT/LLM/vision/TTS APIs)
+
+Recommendations:
+- Use only trusted API endpoints, models, and dependencies.
+- Protect your workstation and accounts; runtime configuration may contain sensitive values (stored locally outside the repository, e.g. `%LOCALAPPDATA%\FckClicky\config.json`).
+- Review and audit changes before building or distributing binaries.

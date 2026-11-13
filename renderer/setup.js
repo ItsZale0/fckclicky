@@ -70,19 +70,19 @@ function gatherCfg() {
 
 $('#sttProvider').addEventListener('change', updateUI);
 $('#pickBin').addEventListener('click', async () => {
-  const res = await window.fckclicky.pickFile({ title: 'Seleziona python.exe', filters: [{ name: 'Python', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }] });
+  const res = await window.fckclicky.pickFile({ title: 'Select python.exe', filters: [{ name: 'Python', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }] });
   if (res && !res.canceled && res.path) $('#whisperBin').value = res.path;
 });
 $('#checkWhisper').addEventListener('click', async () => {
   const msg = $('#msg');
-  msg.textContent = 'Verifica in corso...';
+  msg.textContent = 'Checking…';
   try {
     const cfg = gatherCfg();
     const res = await window.fckclicky.whisperCheck(cfg);
-    msg.textContent = res?.message || (res?.ok ? 'OK' : 'Configurazione non valida');
+    msg.textContent = res?.message || (res?.ok ? 'OK' : 'Invalid configuration');
     msg.style.color = res?.ok ? '#7ee787' : '#ffb4b4';
   } catch (e) {
-    msg.textContent = 'Errore verifica: ' + (e?.message || e);
+    msg.textContent = 'Check error: ' + (e?.message || e);
     msg.style.color = '#ffb4b4';
   }
 });
@@ -91,27 +91,27 @@ $('#save').addEventListener('click', async () => {
   const msg = $('#msg');
   const cfg = gatherCfg();
   if (cfg.stt_provider === 'local_whisper' && !cfg.local_whisper_bin) {
-    msg.textContent = 'Seleziona il percorso dell’eseguibile Whisper per l’opzione locale.';
+    msg.textContent = 'Select the path to the Whisper executable for local mode.';
     msg.style.color = '#ffb4b4';
     return;
   }
-  msg.textContent = 'Salvataggio...';
+  msg.textContent = 'Saving…';
   msg.style.color = '#b9c9e6';
   try {
     await window.fckclicky.completeSetup({ ...cfg, setup_completed: true });
   } catch (e) {
-    msg.textContent = 'Errore salvataggio: ' + (e?.message || e);
+    msg.textContent = 'Save error: ' + (e?.message || e);
     msg.style.color = '#ffb4b4';
   }
 });
 
 $('#skip').addEventListener('click', async () => {
   const msg = $('#msg');
-  msg.textContent = 'Avvio con impostazioni predefinite...';
+  msg.textContent = 'Starting with default settings…';
   try {
     await window.fckclicky.completeSetup({ setup_completed: true, stt_provider: 'remote' });
   } catch (e) {
-    msg.textContent = 'Errore: ' + (e?.message || e);
+    msg.textContent = 'Error: ' + (e?.message || e);
   }
 });
 
@@ -132,25 +132,25 @@ $('#autoSetup').addEventListener('click', async () => {
   const btn = $('#autoSetup');
   autoSetupRunning = true;
   btn.disabled = true;
-  btn.textContent = 'Installazione in corso...';
+  btn.textContent = 'Installing…';
   const model = $('#autoModel')?.value || 'base';
-  autoLogAppend('Avvio installazione automatica di faster-whisper (modello: ' + model + ')...');
+  autoLogAppend('Starting automatic faster-whisper installation (model: ' + model + ')…');
   try {
     const res = await window.fckclicky.whisperAutoSetup({ model });
     if (res && res.ok) {
       $('#whisperBin').value = res.bin;
       $('#whisperModel').value = res.model;
-      autoLogAppend('✅ Completato! I campi sono stati compilati: premi “Salva e continua”.');
+      autoLogAppend('✓ Done. Fields have been filled in — click “Save and continue”.');
     } else {
-      autoLogAppend('⚠️ Installazione terminata con esito inatteso: ' + JSON.stringify(res || {}));
+      autoLogAppend('Installation finished with an unexpected result: ' + JSON.stringify(res || {}));
     }
   } catch (e) {
-    autoLogAppend('❌ Errore: ' + (e?.message || e));
-    autoLogAppend('Usa la guida manuale sotto per installare a mano e compila i campi.');
+    autoLogAppend('Error: ' + (e?.message || e));
+    autoLogAppend('Use the manual guide below to install by hand, then fill in the fields.');
   } finally {
     autoSetupRunning = false;
     btn.disabled = false;
-    btn.textContent = 'Reinstalla / aggiorna faster-whisper';
+    btn.textContent = 'Reinstall / update faster-whisper';
   }
 });
 

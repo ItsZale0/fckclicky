@@ -3,33 +3,38 @@
 [![CI](https://github.com/ItsZale0/fckclicky/actions/workflows/ci.yml/badge.svg)](https://github.com/ItsZale0/fckclicky/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-**FOSS is 4ever.**
+FckClicky is a local-first Windows screen assistant built with Electron. It provides a compact notch interface, gesture-based screen-area selection, and push-to-talk voice interaction (speech-to-text → vision/chat → optional text-to-speech), using either a private/OpenAI-compatible API or a local faster-whisper setup.
 
-FckClicky is a local-first Windows screen assistant built with Electron. It provides a compact notch UI, gesture-based screen-area selection, and push-to-talk voice (STT → vision/chat → optional TTS) using your own/private API or local Whisper setup.
+> **Status:** active development. Windows (x64) is the primary supported platform.
 
-> **Platform:** Windows (x64, NSIS installer).  
-> **License:** GNU GPL v3.0 — see [`LICENSE`](LICENSE).
+## Overview
+
+FckClicky is designed to stay out of the way until needed:
+- The notch remains hidden by default and appears when activated.
+- Hold **Ctrl+Alt** to activate the assistant and use push-to-talk.
+- Circle an area on screen to select a region for vision/context.
+- Press **Esc** to cancel the current interaction cleanly.
 
 ## Features
 
-- **Notch assistant UI** (hidden by default): hold `Ctrl+Alt` to activate; auto-hides after idle.
-- **Gesture selection:** circle an area on screen (overlay) to capture a region for vision prompts.
-- **Push-to-talk voice:** hold-to-talk, release to send (record → STT → model → optional TTS).
-- **STT providers:** remote OpenAI-compatible `/audio/transcriptions`, or local **faster-whisper** (SYSTRAN) with assisted setup.
-- **WinUI/Fluent-inspired UI:** light/dark/system accent aware, reduced-motion support, motion preference toggle.
-- **Settings & setup:** in-app settings flyout and first-run/setup window for STT configuration.
-- **Tray behavior:** minimize to tray, clean cancel (`Esc`), always-on-top notch flow.
-
-> **Note:** the previous experimental Draw/3D engine window was removed for open-source provenance/compliance reasons (see [Open source status](#open-source-status--compliance)).
+- **Notch UI** — compact, always-available assistant surface with tray integration.
+- **Activation model** — `Ctrl+Alt` hold-to-activate / push-to-talk; idle auto-hide behavior.
+- **Screen-area selection** — gesture-based overlay selection (loop/circle) to capture a region.
+- **Voice pipeline** — record → STT → chat/vision → optional TTS playback.
+- **Speech-to-text options**
+  - **Remote:** OpenAI-compatible `/audio/transcriptions` endpoint.
+  - **Local:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper) with assisted setup and generated helper script.
+- **Settings & setup** — in-app settings flyout and first-run/setup window.
+- **UI** — Fluent/WinUI-inspired styling, light/dark and system accent awareness, reduced-motion support and motion preference toggle.
 
 ## Requirements
 
-- Windows 10/11 (x64)
-- [Node.js](https://nodejs.org/) 20+ (LTS recommended) and npm
-- **Local STT (optional, faster-whisper):** Python 3.10+ and ability to install `faster-whisper` (setup helper can assist)
-- **Remote mode (optional):** an OpenAI-compatible API endpoint/key (configured in settings)
+- **Windows 10/11** (x64)
+- **Node.js 20+** (LTS recommended) and npm
+- **Local STT (optional):** Python 3.10+ and the ability to install `faster-whisper`
+- **Remote mode (optional):** an OpenAI-compatible API endpoint and credentials for the services you enable (STT/chat/vision/TTS)
 
-## Quick start (development)
+## Getting started (development)
 
 ```bash
 git clone https://github.com/ItsZale0/fckclicky.git
@@ -38,55 +43,79 @@ npm install
 npm start
 ```
 
-Useful debug flag: `HEYCLICKY_DEBUG_SHOW=1` to force the notch visible for inspection.
+You can also run directly with `npx electron .`.
+
+**Useful debug flag:** `HEYCLICKY_DEBUG_SHOW=1` forces the notch to show for UI inspection.
 
 ## Build
 
 ```bash
-# unpacked app (fast validation)
+# Unpacked app (faster validation)
 npm run pack
 
-# NSIS installer
+# NSIS installer (Windows x64)
 npm run dist
 ```
 
-Outputs (electron-builder):
+Build outputs (electron-builder):
 - `dist/FckClicky Setup <version>.exe`
 - `dist/win-unpacked/`
 
-The installer includes branded assets and the motto **“FOSS is 4ever”** (`build/installer.nsh`, `build/*.bmp`). Code signing is not configured by default.
+Code signing is not configured by default.
 
-## Configuration & privacy
+## Configuration and data
 
-- Runtime config is stored **outside the repo** at: `%LOCALAPPDATA%\FckClicky\config.json`
-- Local Whisper helper/model data (when used): `%LOCALAPPDATA%\FckClicky\whisper\`
-- The app can capture screen regions, record microphone audio, and send data to the endpoints/models **you** configure. Review settings, protect your machine/accounts, and only use trusted services.
+Runtime configuration and local helper data are stored outside the repository:
+
+- **Config:** `%LOCALAPPDATA%\FckClicky\config.json`
+- **Local Whisper helper/models (when used):** `%LOCALAPPDATA%\FckClicky\whisper\` (as configured)
+
+Do not commit local configuration or credentials.
+
+## Privacy and security notes
+
+FckClicky can access sensitive capabilities depending on how you use it:
+- **Screen capture** (selected regions) for vision/context
+- **Microphone input** for push-to-talk
+- **Network requests** to the API endpoints you configure
+
+Only use trusted endpoints and models, review your settings, and protect your machine and accounts. For vulnerability reporting, see [`SECURITY.md`](SECURITY.md).
 
 ## Project structure
 
-- `main.js` — Electron main process (windows, hotkeys/watcher, overlay/notch, IPC, STT/AI orchestration)
-- `preload.js` — secure bridge (`window.fckclicky`)
-- `renderer/` — UI (`index.html` notch+settings, `setup.html`, `overlay.html`, etc.)
-- `assets/` — bundled runtime assets (app icon; `Engine/clicky-three.js`, MIT)
-- `build/` — installer branding assets/scripts
-- `mockups/` — UI mockups/check screenshots
-- `.github/workflows/` — CI
+- `main.js` — Electron main process (windows, activation/hotkeys, overlay/notch, IPC, STT/AI orchestration)
+- `preload.js` — preload bridge (`window.fckclicky`)
+- `renderer/` — UI (`index.html` notch & settings, `setup.html`, `overlay.html`, `draw.html` placeholder, etc.)
+- `assets/` — bundled runtime assets (app icon; `Engine/clicky-three.js`)
+- `build/` — installer assets/scripts
+- `mockups/` — UI mockups and check screenshots
+- `.github/workflows/` — CI configuration
 
-## Open source status & compliance
+## Roadmap
 
-- Licensed under **GPL-3.0-only** (`LICENSE`).
-- Third-party notices: `THIRD_PARTY_NOTICES.md`
-- Readiness/remediation notes: `OPEN_SOURCE_READINESS_REPORT.md`
+Planned and potential improvements (subject to change):
 
-**Cleanup performed for release:** unreferenced/unverified third-party or provenance-unclear assets (brand logos, earcons/sounds/audio/video/voice previews/referral images, renamed fonts) and unverified draw-engine components were removed; the Draw/3D window is disabled. `three.js` (MIT) is retained with its header. Review the report and ensure your use/distribution complies with applicable laws and third-party rights.
+- **Draw / 3D reimplementation** — replace the removed placeholder with a clean, fully licensed/open implementation for drawing and 3D visualization features.
+- **Voice flow hardening** — improved reliability, device handling, and clearer diagnostics across STT/TTS paths.
+- **Model/provider UX** — better model discovery, validation, and per-task configuration.
+- **Selection & overlay refinements** — improved accuracy, feedback, and accessibility of gesture selection.
+- **Packaging & distribution** — signed builds, update strategy, and broader platform evaluation.
+- **Testing & quality** — expanded automated checks and end-to-end validation.
 
-## Contributing & security
+## Open source compliance
 
-- See `CONTRIBUTING.md` for development and PR guidelines.
-- See `SECURITY.md` for reporting vulnerabilities.
+- **License:** [GNU GPL v3.0](LICENSE) (`GPL-3.0-only`)
+- **Third-party notices:** [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+- **Readiness/remediation notes:** [`OPEN_SOURCE_READINESS_REPORT.md`](OPEN_SOURCE_READINESS_REPORT.md)
+
+Unverified or provenance-unclear third-party asset bundles and draw-engine components were removed for release readiness. `three.js` (MIT) is retained with its license header preserved. Review the compliance documents before redistribution.
+
+## Contributing
+
+Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines. By contributing, you agree that your contributions are licensed under this repository’s GPL-3.0-only license.
 
 ## Disclaimer
 
-This software is provided **“AS IS”**, without warranty (see `LICENSE`). It interacts with your screen, microphone, and configured APIs—use responsibly.
+This software is provided **“AS IS”**, without warranty of any kind. See [`LICENSE`](LICENSE) for details.
 
-**Not affiliated with or endorsed by HeyClicky** or any third-party service whose APIs you may configure. The name is a playful allusion; ensure your use respects applicable trademark and other rights.
+FckClicky is an independent project and is **not affiliated with or endorsed by HeyClicky** or any third-party service whose APIs you may configure. The name is a playful allusion; ensure your use and distribution respect applicable trademark and other rights.

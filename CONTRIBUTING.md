@@ -1,26 +1,39 @@
 # Contributing to FckClicky
 
-Thanks for your interest in contributing.
+Thank you for your interest in contributing to FckClicky.
 
 ## Getting started
 
 1. Fork the repository and clone your fork.
-2. Install dependencies: `npm install`
-3. Run in development: `npm start` (or `npx electron .`)
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the app in development:
+   ```bash
+   npm start
+   ```
 
-## Development notes
+## Development guidelines
 
-- **Platform:** primarily Windows (Electron + WinUI/Fluent-styled UI, NSIS packaging).
-- **Runtime config:** stored outside the repo at `%LOCALAPPDATA%\FckClicky\config.json` (do not commit secrets).
-- **Build:** `npm run dist` produces `dist/FckClicky Setup <version>.exe`.
-- Keep changes consistent with existing style and structure (`main.js`, `preload.js`, `renderer/*`).
+- **Platform:** Windows (x64) is the primary target (Electron, NSIS packaging).
+- **Scope:** Keep pull requests focused and include a clear description of the problem, approach, and testing performed.
+- **Consistency:** Follow existing project structure and style (`main.js`, `preload.js`, `renderer/*`).
+- **Safety:** Do not commit secrets, personal data, local configuration, build outputs (`dist/`), or `node_modules/`.
+- **Assets and licensing:** Only submit code or assets you have the right to contribute and license under this project’s license. Do not add third-party proprietary or uncleared material.
 
-## Pull requests
+## Validation
 
-- Keep PRs focused and describe the motivation and testing performed.
-- Do not include unrelated asset bundles, binaries, or secrets.
-- Ensure `node -c main.js preload.js renderer/app.js renderer/setup.js` passes.
+Before submitting, run the relevant checks where possible:
 
-## Licensing
+```bash
+node -c main.js
+node -c preload.js
+node -c renderer/app.js
+node -c renderer/setup.js
+npm run pack
+```
 
-By contributing, you agree that your contributions will be licensed under the repository’s **GNU GPL-3.0-only** license (`LICENSE`). Only submit code/assets you have the right to license under GPL-3.0.
+## Licensing of contributions
+
+By submitting a contribution, you agree that your contributions are licensed under the repository’s **GNU GPL-3.0-only** license (see [`LICENSE`](LICENSE)).

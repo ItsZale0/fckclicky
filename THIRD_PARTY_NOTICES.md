@@ -1,25 +1,27 @@
 # Third-party notices
 
-This file lists third-party material bundled in this repository/distribution.
+This document lists third-party material bundled in this repository and/or included in distributed builds.
 
-## Three.js (MIT)
+## Bundled in repository
 
-- **File:** `assets/Engine/clicky-three.js`
-- **Upstream:** https://threejs.org/
+### Three.js (MIT)
+
+- **Path:** `assets/Engine/clicky-three.js`
+- **Project:** [Three.js](https://threejs.org/)
 - **License:** MIT
 - **Copyright:** Copyright © 2010-2026 Three.js Authors
 - **SPDX-License-Identifier:** MIT
 
-The original license header is preserved in `assets/Engine/clicky-three.js`. The MIT license text is available at https://opensource.org/license/mit and in Three.js upstream sources.
+The original copyright and license header is preserved in the source file. The full MIT license text is available from the Three.js project and at <https://opensource.org/license/mit>.
 
-## Electron / electron-builder (development & packaging)
+## Development and packaging dependencies
 
-`electron` and `electron-builder` are used as development/build dependencies (see `package.json`/`package-lock.json`) and are distributed in packaged builds according to their respective licenses. Refer to the installed packages and upstream projects for their full license texts and notices.
+- **Electron** and **electron-builder** (and transitive dependencies) are used for development, packaging, and runtime distribution as defined in `package.json` / `package-lock.json`. These components are governed by their respective licenses; consult the upstream projects and installed package metadata for complete license texts and notices.
 
-## Generated project assets
+## Project-generated assets
 
-- `assets/AppIcon.ico` and installer bitmaps in `build/` were generated for this project as part of the FckClicky rebrand and are covered by this repository’s license unless otherwise stated.
+- `assets/AppIcon.ico` and installer resources in `build/` were generated for this project and are covered by this repository’s license unless otherwise stated.
 
-## Removed materials (open-source compliance cleanup)
+## Removed materials
 
-To reduce legal/provenance risk for open-source distribution, unreferenced and/or unverified third-party/proprietary-leaning asset sets previously present in the working tree (third-party brand logos, earcons/sounds/audio/video/voice previews/referral images, renamed fonts, and draw-engine files of unverified provenance) were removed. The 3D/Draw window is disabled as a result. See `OPEN_SOURCE_READINESS_REPORT.md` for context.
+During open-source readiness remediation, previously included unverified or provenance-unclear third-party asset bundles and draw-engine components were removed (including third-party brand logos, audio/earcon/sound/video/voice-preview/referral assets, renamed font copies, and unverified draw-engine sources). The Draw/3D feature is currently a placeholder pending a clean reimplementation (see project roadmap). For context, refer to `OPEN_SOURCE_READINESS_REPORT.md`.
