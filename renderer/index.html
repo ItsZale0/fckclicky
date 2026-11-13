@@ -504,6 +504,16 @@
     }
     .btn:hover { background: var(--layer-hover); }
     .btn:active { background: var(--layer-pressed); transform: scale(0.985); }
+    .btn.debug {
+      background: var(--critical);
+      color: #ffffff;
+      border-color: var(--critical);
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+    .btn.debug:hover {
+      background: #c42b1c;
+    }
     .btn:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
     .btn:disabled { color: var(--text-disabled); background: var(--layer-alt); border-color: var(--stroke); cursor: default; }
     .btn.accent {
@@ -753,6 +763,9 @@
       </section>
 
       <div class="flyout-foot">
+        <button id="debugBtn" class="btn" type="button" style="display:none;" title="Debug (hidden)">
+          <span class="glyph" aria-hidden="true">&#xE896;</span> Debug
+        </button>
         <button id="openSetupBtn" class="btn" type="button" title="Open initial setup">
           <span class="glyph" aria-hidden="true">&#xE896;</span> Setup</button>
         <button id="saveSettingsBtn" class="btn accent" type="button">

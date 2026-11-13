@@ -456,6 +456,25 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// Debug panel — triple-click the hidden debug button to show/hide
+let debugClicked = 0, debugTimer = null;
+const debugBtn = $('#debugBtn');
+if (debugBtn) {
+  debugBtn.addEventListener('click', () => {
+    debugClicked++;
+    if (debugClicked === 3) {
+      clearTimeout(debugTimer);
+      const flyout = document.getElementById('settingsPanel');
+      const isOpen = flyout && flyout.style.display !== 'none';
+      window.fckclicky.log('[debug] toggle panel: ' + (!isOpen ? 'open' : 'close'));
+      try { flyout?.style.setProperty('display', isOpen ? 'none' : 'block'); } catch {}
+      debugClicked = 0;
+    } else {
+      debugTimer = setTimeout(() => { debugClicked = 0; }, 600);
+    }
+  });
+}
+
 window.fckclicky?.onActivateAssistant?.(() => {
   if (!recording) startVoice();
 });
