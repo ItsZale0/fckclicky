@@ -1045,7 +1045,7 @@ ipcMain.handle('whisper-auto-setup', async (e, opts = {}) => {
   const model = (opts && opts.model && String(opts.model).trim()) || (cfg.local_whisper_model || 'base');
   log('Starting automatic faster-whisper (SYSTRAN) installation...');
   const res = await setupFasterWhisper(log, model);
-  log('âœ… Completato!');
+  log('âœ... Completato!');
   return { ok: true, ...res };
 });
 

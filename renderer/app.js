@@ -108,12 +108,12 @@ const uiSound = {
 
 // Centralized notch/status copy (English, short labels for the 24px status line).
 const COPY = {
-  ready: 'Ready - Hold Ctrl+Alt to speak',
+  ready: 'Ready - Hold Ctrl + Alt to speak',
   listening: 'Listeningâ€¦',
   thinking: 'Thinkingâ€¦',
   speaking: 'Speakingâ€¦',
-  tray: 'In tray - Hold Ctrl+Alt to speak',
-  cancelled: 'Cancelled - Hold Ctrl+Alt to speak'
+  tray: 'In tray - Hold Ctrl + Alt to speak',
+  cancelled: 'Cancelled - Hold Ctrl + Alt to speak'
 };
 
 function setStatus(msg, kind='ok') {
@@ -161,7 +161,7 @@ function blobToBase64(blob) {
   });
 }
 
-// Pointer and microphone: activated via Ctrl+Alt (no dedicated button)
+// Pointer and microphone: activated via Ctrl + Alt (no dedicated button)
 $('#collapseBtn').addEventListener('click', () => {
   uiSound.click();
   closeSettings();
@@ -436,10 +436,10 @@ async function loadModelsByType(type) {
 
 // Models are loaded automatically in dropdowns when settings open.
 
-// Listening activated via Ctrl+Alt (hold)
+// Listening activated via Ctrl + Alt (hold)
 
 // ===== Voice Mode =====
-// Click or Ctrl+Alt+V toggles listening; hold behavior removed to avoid accidental stops.
+// Click or Ctrl + Alt + V toggles listening; hold behavior removed to avoid accidental stops.
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -475,7 +475,7 @@ function replayNotchEntrance() {
 try { window.fckclicky?.onUiShown?.(replayNotchEntrance); } catch {}
 
 window.fckclicky?.onAssistantHoldStart?.(() => {
-  // Ctrl+Alt pressed: start listening (push-to-talk)
+  // Ctrl + Alt pressed: start listening (push-to-talk)
   replayNotchEntrance();
   voiceHoldActive = true;
   try { window.fckclicky?.log?.('hold-start received'); } catch {}
@@ -486,7 +486,7 @@ window.fckclicky?.onAssistantHoldStart?.(() => {
   }
 });
 window.fckclicky?.onAssistantHoldStop?.(() => {
-  // Ctrl+Alt released: stop listening and send
+  // Ctrl + Alt released: stop listening and send
   voiceHoldActive = false;
   try { window.fckclicky?.log?.('hold-stop received, recording=' + recording + ' pending=' + micRequestPending); } catch {}
   if (recording) {
@@ -541,7 +541,7 @@ async function startVoice() {
     }
 
     micRequestPending = false;
-    // If user released Ctrl+Alt while we were requesting mic, abort
+    // If user released Ctrl + Alt while we were requesting mic, abort
     if (!voiceHoldActive) {
       try { window.fckclicky?.log?.('startVoice: hold released during mic request, aborting'); } catch {}
       try { stream?.getTracks?.().forEach(t => t.stop()); } catch {}
@@ -564,7 +564,7 @@ async function startVoice() {
     recording = true;
     uiSound.listenStart();
     setStatus(COPY.listening, 'listening');
-    showTranscript('Listening... release Ctrl+Alt to send');
+    showTranscript('Listening... release Ctrl + Alt to send');
     try { window.fckclicky?.log?.('startVoice: recording started, mime=' + mime); } catch {}
   } catch (err) {
     micRequestPending = false;
@@ -619,7 +619,7 @@ async function stopVoice() {
       try { window.fckclicky?.log?.('voice: no audio chunks recorded, mime=' + mimeType + ' chunks=' + audioChunks.length); } catch {}
       uiSound.error();
       setStatus(COPY.ready, 'ok');
-      showTranscript('No audio recorded. Hold Ctrl+Alt a bit longer and try again.', 10000);
+      showTranscript('No audio recorded. Hold Ctrl + Alt a bit longer and try again.', 10000);
       return;
     }
 

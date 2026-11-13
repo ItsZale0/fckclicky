@@ -75,7 +75,7 @@ $('#pickBin').addEventListener('click', async () => {
 });
 $('#checkWhisper').addEventListener('click', async () => {
   const msg = $('#msg');
-  msg.textContent = 'Checking…';
+  msg.textContent = 'Checking...';
   try {
     const cfg = gatherCfg();
     const res = await window.fckclicky.whisperCheck(cfg);
@@ -95,7 +95,7 @@ $('#save').addEventListener('click', async () => {
     msg.style.color = '#ffb4b4';
     return;
   }
-  msg.textContent = 'Saving…';
+  msg.textContent = 'Saving...';
   msg.style.color = '#b9c9e6';
   try {
     await window.fckclicky.completeSetup({ ...cfg, setup_completed: true });
@@ -107,7 +107,7 @@ $('#save').addEventListener('click', async () => {
 
 $('#skip').addEventListener('click', async () => {
   const msg = $('#msg');
-  msg.textContent = 'Starting with default settings…';
+  msg.textContent = 'Starting with default settings...';
   try {
     await window.fckclicky.completeSetup({ setup_completed: true, stt_provider: 'remote' });
   } catch (e) {
@@ -132,9 +132,9 @@ $('#autoSetup').addEventListener('click', async () => {
   const btn = $('#autoSetup');
   autoSetupRunning = true;
   btn.disabled = true;
-  btn.textContent = 'Installing…';
+  btn.textContent = 'Installing...';
   const model = $('#autoModel')?.value || 'base';
-  autoLogAppend('Starting automatic faster-whisper installation (model: ' + model + ')…');
+  autoLogAppend('Starting automatic faster-whisper installation (model: ' + model + ')...');
   try {
     const res = await window.fckclicky.whisperAutoSetup({ model });
     if (res && res.ok) {
