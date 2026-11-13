@@ -5,7 +5,7 @@
 
 FckClicky is a local-first Windows screen assistant built with Electron. It provides a compact notch interface, gesture-based screen-area selection, and push-to-talk voice interaction (speech-to-text → vision/chat → optional text-to-speech), using either a private/OpenAI-compatible API or a local faster-whisper setup.
 
-> **Status:** active development. Windows (x64) is the primary supported platform.
+> **Platform:** Windows 10/11 (x64)
 
 ## Overview
 
@@ -34,7 +34,12 @@ FckClicky is designed to stay out of the way until needed:
 - **Local STT (optional):** Python 3.10+ and the ability to install `faster-whisper`
 - **Remote mode (optional):** an OpenAI-compatible API endpoint and credentials for the services you enable (STT/chat/vision/TTS)
 
-## Getting started (development)
+## Installation
+
+### End users
+Download the latest Windows installer from [GitHub Releases](https://github.com/ItsZale0/fckclicky/releases).
+
+### From source
 
 ```bash
 git clone https://github.com/ItsZale0/fckclicky.git
@@ -43,9 +48,9 @@ npm install
 npm start
 ```
 
-You can also run directly with `npx electron .`.
+You can also run the app directly with `npx electron .`.
 
-**Useful debug flag:** `HEYCLICKY_DEBUG_SHOW=1` forces the notch to show for UI inspection.
+**Debug flag:** `HEYCLICKY_DEBUG_SHOW=1` forces the notch to show for UI inspection.
 
 ## Build
 
@@ -102,13 +107,12 @@ Planned and potential improvements (subject to change):
 - **Packaging & distribution** — signed builds, update strategy, and broader platform evaluation.
 - **Testing & quality** — expanded automated checks and end-to-end validation.
 
-## Open source compliance
+## Licensing and third-party notices
 
 - **License:** [GNU GPL v3.0](LICENSE) (`GPL-3.0-only`)
 - **Third-party notices:** [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
-- **Readiness/remediation notes:** [`OPEN_SOURCE_READINESS_REPORT.md`](OPEN_SOURCE_READINESS_REPORT.md)
 
-Unverified or provenance-unclear third-party asset bundles and draw-engine components were removed for release readiness. `three.js` (MIT) is retained with its license header preserved. Review the compliance documents before redistribution.
+This project includes `three.js` (MIT) with its license header preserved. Unverified or provenance-unclear third-party assets and draw-engine components were removed prior to release; the Draw/3D feature is planned for clean reimplementation (see [Roadmap](#roadmap)). Review the license and notices before redistribution or modification.
 
 ## Contributing
 

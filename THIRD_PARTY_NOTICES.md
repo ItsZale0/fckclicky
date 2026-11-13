@@ -24,4 +24,4 @@ The original copyright and license header is preserved in the source file. The f
 
 ## Removed materials
 
-During open-source readiness remediation, previously included unverified or provenance-unclear third-party asset bundles and draw-engine components were removed (including third-party brand logos, audio/earcon/sound/video/voice-preview/referral assets, renamed font copies, and unverified draw-engine sources). The Draw/3D feature is currently a placeholder pending a clean reimplementation (see project roadmap). For context, refer to `OPEN_SOURCE_READINESS_REPORT.md`.
+During preparation for open-source release, previously included unverified or provenance-unclear third-party asset bundles and draw-engine components were removed (including third-party brand logos, audio/earcon/sound/video/voice-preview/referral assets, renamed font copies, and unverified draw-engine sources). The Draw/3D feature is currently a placeholder pending a clean reimplementation (see the project roadmap in `README.md`).
