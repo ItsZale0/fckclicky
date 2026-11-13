@@ -366,49 +366,48 @@
       <label class="field">Provider
         <select id="sttProvider">
           <option value="remote">Remote API - OpenAI-compatible (/audio/transcriptions)</option>
-          <option value="local_whisper">Locale - faster-whisper (SYSTRAN)</option>
+          <option value="local_whisper">Local - faster-whisper</option>
         </select>
       </label>
 
       <div id="remoteFields">
-        <label class="field">Base URL API
+        <label class="field">Base URL
           <input id="baseUrl" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
         </label>
-        <label class="field">API Key (opzionale)
+        <label class="field">API key (optional)
           <input id="apiKey" type="password" placeholder="sk-..." />
         </label>
-        <label class="field">Model STT remoto
+        <label class="field">Remote STT model
           <input id="sttModel" spellcheck="false" placeholder="auto" />
         </label>
       </div>
 
       <div id="localFields" class="hidden">
-          <label class="field">Model faster-whisper
-            <select id="autoModel">
-              <option value="tiny">tiny - fastest (~75 MB)</option>
-              <option value="base" selected>base - recommended (~145 MB)</option>
-              <option value="small">small - more accurate (~465 MB)</option>
-              <option value="medium">medium - highest (~1.5 GB, slow on CPU)</option>
-            </select>
-          </label>
-          <div style="margin-top:10px;">
-            <button id="autoSetup" class="btn accent" type="button">
-              <span class="glyph" aria-hidden="true">&#xE896;</span> Install faster-whisper automatically
-            </button>
-          </div>
-          <pre id="autoLog" class="hidden"></pre>
+        <label class="field">faster-whisper model (automatic setup)
+          <select id="autoModel">
+            <option value="tiny">tiny - fastest (~75 MB)</option>
+            <option value="base" selected>base - recommended (~145 MB)</option>
+            <option value="small">small - more accurate (~465 MB)</option>
+            <option value="medium">medium - highest (~1.5 GB, slow on CPU)</option>
+          </select>
+        </label>
+        <div style="margin-top:10px;">
+          <button id="autoSetup" class="btn accent" type="button">
+            <span class="glyph" aria-hidden="true">&#xE896;</span> Install faster-whisper automatically
+          </button>
         </div>
+        <pre id="autoLog" class="hidden"></pre>
 
-        <label class="field">Path to <code>python.exe</code>
+        <label class="field" style="margin-top:12px;">Path to <code>python.exe</code>
           <div class="row">
             <input id="whisperBin" spellcheck="false" placeholder="C:\Users\you\AppData\Local\Programs\Python\Python312\python.exe" />
             <button id="pickBin" class="btn" type="button">Browse</button>
           </div>
         </label>
-        <label class="field">Model faster-whisper (nome)
+        <label class="field">faster-whisper model name
           <input id="whisperModel" spellcheck="false" placeholder="base" />
         </label>
-        <label class="field">Argomenti (opzionale, usa {model} {input} {output})
+        <label class="field">Arguments (optional, use {model} {input} {output})
           <input id="whisperArgs" spellcheck="false" placeholder='"C:\\path\\to\\transcribe.py" {input} {model}' />
         </label>
         <div style="margin-top:10px;">
@@ -426,7 +425,7 @@
     <div id="msg" role="status" aria-live="polite"></div>
 
     <div class="actions">
-      <button id="skip" class="btn" type="button">Salta (usa i default)</button>
+      <button id="skip" class="btn" type="button">Skip (use defaults)</button>
       <button id="save" class="btn accent" type="button">
         <span class="glyph" aria-hidden="true">&#xE73E;</span> Save and continue
       </button>

@@ -49,8 +49,46 @@
       background: var(--accent);
       box-shadow: 0 0 0 2px rgba(96, 205, 255, 0.18);
     }
+    #subtitle {
+      position: fixed;
+      left: 50%;
+      bottom: 7vh;
+      transform: translateX(-50%) translateY(8px);
+      max-width: min(920px, calc(100vw - 64px));
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: rgba(20, 20, 20, 0.78);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      font: 500 20px/1.45 var(--font-ui);
+      text-align: center;
+      white-space: normal;
+      word-break: break-word;
+      z-index: 30;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 180ms ease, transform 220ms ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+    #subtitle.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #subtitle p { margin: 0 0 0.4em; }
+    #subtitle p:last-child { margin-bottom: 0; }
+    #subtitle ul, #subtitle ol { margin: 0.3em 0 0.3em 1.2em; text-align: left; display: inline-block; }
+    #subtitle code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; background: rgba(255,255,255,0.12); padding: 0.1em 0.35em; border-radius: 4px; }
+    #subtitle pre { margin: 0.4em 0; text-align: left; background: rgba(0,0,0,0.35); padding: 10px 12px; border-radius: 8px; overflow: auto; }
+    #subtitle pre code { background: transparent; padding: 0; }
+    #subtitle a { color: var(--accent); }
+    #subtitle h1,#subtitle h2,#subtitle h3 { font-size: 1.05em; margin: 0.2em 0; }
+    @media (prefers-color-scheme: light) {
+      #subtitle { background: rgba(250,250,250,0.86); color: #111; border-color: rgba(0,0,0,0.1); text-shadow: none; }
+      #subtitle code { background: rgba(0,0,0,0.06); }
+      #subtitle pre { background: rgba(0,0,0,0.05); }
+    }
     @media (prefers-reduced-motion: reduce) {
-      #hint { transition-duration: 0.001ms !important; }
+      #hint, #subtitle { transition-duration: 0.001ms !important; }
     }
   </style>
 </head>
@@ -58,6 +96,7 @@
   <canvas id="c"></canvas>
   <canvas id="u"></canvas>
   <canvas id="r"></canvas>
+  <div id="subtitle" aria-live="polite"></div>
   
   <script>
     const rCanvas = document.getElementById('r');
@@ -65,6 +104,68 @@
     const uCanvas = document.getElementById('u');
     const uctx = uCanvas.getContext('2d');
     const hint = document.getElementById('hint');
+    const subtitleEl = document.getElementById('subtitle');
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function renderMarkdown(md) {
+      let s = String(md || '').replace(/\r\n/g, '\n');
+      const codeBlocks = [];
+      s = s.replace(/```([\s\S]*?)```/g, (_, code) => {
+        const i = codeBlocks.push('<pre><code>' + escapeHtml(code.replace(/^\n|\n$/g,'')) + '</code></pre>') - 1;
+        return `\n@@CODEBLOCK${i}@@\n`;
+      });
+      s = escapeHtml(s);
+      s = s.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+      s = s.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+      s = s.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+      s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      s = s.replace(/_(.+?)_/g, '<em>$1</em>');
+      s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+      // lists
+      s = s.replace(/(?:^|\n)([-*] .+(?:\n[-*] .+)*)/g, (m) => {
+        const items = m.trim().split('\n').map(l => '<li>' + l.replace(/^[-*]\s+/, '') + '</li>').join('');
+        return '\n<ul>' + items + '</ul>';
+      });
+      s = s.replace(/(?:^|\n)((?:\d+\. .+(?:\n\d+\. .+)*))/g, (m) => {
+        const items = m.trim().split('\n').map(l => '<li>' + l.replace(/^\d+\.\s+/, '') + '</li>').join('');
+        return '\n<ol>' + items + '</ol>';
+      });
+      // paragraphs/line breaks
+      const parts = s.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => {
+        if (/^<(h\d|ul|ol|pre|@@CODEBLOCK)/.test(p)) return p;
+        if (p.includes('@@CODEBLOCK')) return p;
+        return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+      });
+      let html = parts.join('\n');
+      html = html.replace(/@@CODEBLOCK(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || '');
+      return html;
+    }
+    let subtitleTimer = null;
+    function showSubtitle(text, opts = {}) {
+      if (!subtitleEl) return;
+      const t = (text == null) ? '' : String(text);
+      if (!t.trim()) { hideSubtitle(); return; }
+      subtitleEl.innerHTML = opts.markdown === false ? escapeHtml(t).replace(/\n/g,'<br>') : renderMarkdown(t);
+      subtitleEl.classList.add('show');
+      clearTimeout(subtitleTimer);
+      const ms = opts.ms != null ? opts.ms : Math.min(30000, Math.max(6000, t.length * 60));
+      if (ms > 0) subtitleTimer = setTimeout(hideSubtitle, ms);
+    }
+    function hideSubtitle() {
+      clearTimeout(subtitleTimer);
+      subtitleEl?.classList.remove('show');
+    }
+    if (window.fckclicky?.onOverlaySubtitle) {
+      window.fckclicky.onOverlaySubtitle((payload) => {
+        if (!payload || payload.clear || payload.text === '' || payload.text == null) { hideSubtitle(); return; }
+        showSubtitle(payload.text, { markdown: payload.markdown !== false, ms: payload.ms });
+      });
+    }
 
     let target = null;       // latest cursor from main
     let head = null;         // smoothed cursor

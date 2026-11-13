@@ -478,6 +478,7 @@ window.fckclicky?.onAssistantHoldStart?.(() => {
   // Ctrl + Alt pressed: start listening (push-to-talk)
   replayNotchEntrance();
   voiceHoldActive = true;
+  try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
   try { window.fckclicky?.log?.('hold-start received'); } catch {}
   if (!recording) {
     setStatus(COPY.listening, 'listening');
@@ -493,7 +494,8 @@ window.fckclicky?.onAssistantHoldStop?.(() => {
     stopVoice();
   } else if (micRequestPending) {
     // mic still initializing; startVoice will abort once stream arrives
-    setStatus(COPY.ready, 'ok');
+    try { transcriptEl?.classList.remove('show'); } catch {}
+    setStatus(COPY.cancelled, 'ok');
     showTranscript('Released too quickly: hold a bit longer', 4000);
   } else {
     setStatus(COPY.ready, 'ok');
@@ -507,6 +509,7 @@ window.fckclicky?.onAssistantIdle?.(() => {
   closeSettings();
   setStatus(COPY.ready, 'ok');
   try { transcriptEl?.classList.remove('show'); } catch {}
+  try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
   try {
     if (notchEl) {
       notchEl.classList.add('notch-out');
@@ -637,11 +640,11 @@ async function stopVoice() {
     if (!transcript) {
       uiSound.error();
       setStatus(COPY.ready, 'ok');
-      showTranscript('Non ho capito (trascrizione vuota). Verifica STT/API locale.');
+      showTranscript('Could not understand audio (empty transcription). Check STT/API settings.');
       return;
     }
 
-    showTranscript('Tu: ' + transcript, 12000);
+    showTranscript('You: ' + transcript, 6000);
     setStatus(COPY.thinking, 'thinking');
 
     // Capture screen (use selected area if available) and ask vision/chat
@@ -656,13 +659,15 @@ async function stopVoice() {
         const res = await window.fckclicky.aiChat({ messages: [{ role: 'user', content: transcript }], stream: false });
         answer = extractContent(res);
       } catch (e2) {
-        throw new Error('AI fallita: ' + (e2?.message || e?.message || e2));
+        throw new Error('AI failed: ' + (e2?.message || e?.message || e2 || e));
       }
     }
 
     answer = (answer || '').trim() || 'No response from the model.';
     uiSound.success();
     setStatus(COPY.ready, 'ok');
+    try { transcriptEl?.classList.remove('show'); } catch {}
+    try { window.fckclicky?.setOverlaySubtitle?.({ text: answer, markdown: true, ms: 30000 }); } catch {}
     showTranscript(answer, 15000);
 
     // Optional TTS
@@ -735,6 +740,7 @@ function cancelAssistant() {
   try { if (recording) { stopVoice._cancelled = true; cleanupRecording(); } } catch {}
   recording = false;
   try { window.fckclicky?.hideOverlay?.(); } catch {}
+  try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
   closeSettings();
   setStatus(COPY.ready, 'ok');
   try { transcriptEl?.classList.remove('show'); } catch {}

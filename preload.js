@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('fckclicky', {
   aiTest: () => ipcRenderer.invoke('ai-test'),
   captureScreen: (opts) => ipcRenderer.invoke('capture-screen', opts),
   typeText: (text) => ipcRenderer.invoke('type-text', text),
+  setOverlaySubtitle: (payload) => ipcRenderer.invoke('overlay-set-subtitle', payload),
 
   // ===== Setup / Local Whisper =====
   openSetup: () => ipcRenderer.invoke('open-setup'),

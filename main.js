@@ -842,9 +842,9 @@ function runLocalWhisper(buf, mimeType, cfg) {
   return new Promise((resolve, reject) => {
     try {
       const bin = (cfg.local_whisper_bin || '').trim();
-      const model = (cfg.local_whisper_model || '').trim();
-      if (!bin) return reject(new Error('Local Whisper: percorso eseguibile non configurato'));
-      if (!fs.existsSync(bin)) return reject(new Error('Local Whisper: eseguibile non trovato: ' + bin));
+      const modelName = (cfg.local_whisper_model || '').trim() || 'base';
+      if (!bin) return reject(new Error('Local STT: executable path is not configured.'));
+      if (!fs.existsSync(bin)) return reject(new Error('Local STT: executable not found: ' + bin));
       const ct = mimeType || 'audio/webm';
       const ext = ct.includes('wav') ? 'wav' : (ct.includes('ogg') ? 'ogg' : 'webm');
       const tmpDir = path.join(CONFIG_DIR, 'tmp');
@@ -856,17 +856,26 @@ function runLocalWhisper(buf, mimeType, cfg) {
 
       let argsTpl = (cfg.local_whisper_args || '').trim();
       let args;
+      const isPython = /python(\.exe)?$/i.test(path.basename(bin)) || /^py(\.exe)?$/i.test(path.basename(bin));
       if (argsTpl) {
-        argsTpl = argsTpl.replace(/\{model\}/g, model).replace(/\{input\}/g, inFile).replace(/\{output\}/g, outBase);
-        // simple split respecting quotes is overkill; basic split
+        argsTpl = argsTpl.replace(/\{model\}/g, modelName).replace(/\{input\}/g, inFile).replace(/\{output\}/g, outBase);
         args = argsTpl.match(/(?:[^\s"]+|"[^"]*")+/g)?.map(s => s.replace(/^"|"$/g, '')) || [];
+      } else if (isPython) {
+        // faster-whisper (SYSTRAN) via Python wrapper
+        const scriptPath = path.join(CONFIG_DIR, 'whisper', 'transcribe.py');
+        try {
+          fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+          if (!fs.existsSync(scriptPath)) fs.writeFileSync(scriptPath, FASTER_WHISPER_TRANSCRIBE_PY, 'utf8');
+        } catch {}
+        args = [scriptPath, inFile, modelName];
       } else {
+        // whisper.cpp-style CLI fallback
         args = [];
-        if (model) { args.push('-m', model); }
+        if (modelName) { args.push('-m', modelName); }
         args.push('-f', inFile, '-nt', '-oj', '-of', outBase);
       }
 
-      execFile(bin, args, { windowsHide: true, timeout: 120000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      execFile(bin, args, { windowsHide: true, timeout: 300000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
         let text = '';
         try {
           const jsonPath = outBase + '.json';
@@ -898,7 +907,11 @@ function runLocalWhisper(buf, mimeType, cfg) {
           try { fs.unlinkSync(outBase + '.vtt'); } catch {}
         }
         if (err && !String(text || '').trim()) {
-          return reject(new Error('Local Whisper failed: ' + (err.message || err) + (stderr ? (' | ' + String(stderr).slice(0,300)) : '')));
+          const detail = String(stderr || stdout || err.message || err).replace(/\s+/g, ' ').trim().slice(0, 500);
+          const hint = /No such file|not found|cannot find|does not exist|non trovato/i.test(detail)
+            ? ' Check that Python/faster-whisper is installed and the model name is valid (e.g. tiny, base, small, medium).'
+            : '';
+          return reject(new Error('Local speech recognition failed: ' + detail + hint));
         }
         resolve({ text: String(text || '').trim() });
       });
@@ -1004,31 +1017,30 @@ async function setupFasterWhisper(log, modelName) {
   fs.mkdirSync(baseDir, { recursive: true });
   const scriptPath = path.join(baseDir, 'transcribe.py');
 
-  log('1/4 Rilevo Python...');
+  log('1/4 Detecting Python...');
   const python = await findPython();
   if (!python) {
-    throw new Error('Python non trovato. Installa Python 3.10+ da python.org (spunta "Add python.exe to PATH") e riprova.');
+    throw new Error('Python not found. Install Python 3.10+ from python.org (enable "Add python.exe to PATH") and try again.');
   }
   log('    Python: ' + python);
 
-  log('2/4 Installo/aggiorno faster-whisper (pip, puo richiedere qualche minuto)...');
+  log('2/4 Installing/updating faster-whisper (pip, this may take a few minutes)...');
   const pip = await runCmd(python, ['-m', 'pip', 'install', '--upgrade', 'faster-whisper'], 900000);
   if (!pip.ok) {
     // try --user fallback
     const pip2 = await runCmd(python, ['-m', 'pip', 'install', '--user', '--upgrade', 'faster-whisper'], 900000);
-    if (!pip2.ok) throw new Error('pip install faster-whisper fallito: ' + (pip.stderr || pip.err || '').slice(0, 400));
+    if (!pip2.ok) throw new Error('pip install faster-whisper failed: ' + (pip.stderr || pip.err || pip2.stderr || pip2.err || '').slice(0, 400));
   }
-  log('    faster-whisper installato.');
+  log('    faster-whisper installed.');
 
-  log('3/4 Creo lo script di trascrizione...');
+  log('3/4 Creating transcription script...');
   fs.writeFileSync(scriptPath, FASTER_WHISPER_TRANSCRIBE_PY, 'utf8');
 
-  log('4/4 Downloading/verifying model "' + modelName + '" (preloading on first use, ~145 MB)...');
-  const warm = await runCmd(python, ['-c', 'from faster_whisper import WhisperModel; WhisperModel("' + modelName + '", device="cpu", compute_type="int8"); print("MODEL_OK")'], 600000);
-  if (!warm.ok && /MODEL_OK/.test(warm.stderr + warm.stdout)) {
-    // ok anyway
-  } else if (!warm.ok && !/MODEL_OK/.test(warm.stderr + warm.stdout)) {
-    throw new Error('Model preload failed: ' + (warm.stderr || warm.err || '').slice(0, 400));
+  log('4/4 Downloading/verifying model "' + modelName + '" (first run may download model files)...');
+  const warm = await runCmd(python, ['-c', 'from faster_whisper import WhisperModel; WhisperModel("' + modelName + '", device="cpu", compute_type="int8"); print("MODEL_OK")'], 900000);
+  const warmOut = (warm.stdout || '') + (warm.stderr || '');
+  if (!warm.ok && !/MODEL_OK/.test(warmOut)) {
+    throw new Error('Model setup failed: ' + (warm.stderr || warm.err || warm.stdout || '').slice(0, 500));
   }
   log('    Model ready.');
 
@@ -1055,17 +1067,17 @@ ipcMain.handle('whisper-check', async (e, payload = {}) => {
   const result = { ok: false, checks: {} };
   result.checks.bin = bin ? { exists: fs.existsSync(bin), path: bin } : { exists: false, path: '' };
   // model is either a file path (whisper.cpp) or a model name for faster-whisper (tiny/base/small/...)
-  const isFile = /[\.\:\\\/]/.test(model);
+  const isFile = /[\\\/]/.test(model) || /\.(bin|gguf|pt|onnx)$/i.test(model);
   result.checks.model = {
     kind: isFile ? 'file' : 'name',
-    exists: isFile ? fs.existsSync(model) : true,
+    exists: isFile ? fs.existsSync(model) : !!model,
     value: model,
-    note: isFile ? '' : 'faster-whisper: scaricato automaticamente al primo utilizzo'
+    note: isFile ? '' : 'faster-whisper: model will be downloaded automatically on first use if needed.'
   };
   result.ok = !!(result.checks.bin.exists && result.checks.model.exists);
   result.message = result.ok
-    ? 'Local STT configuration is valid.'
-    : 'Check the Python/executable path and model.';
+    ? 'Local speech recognition configuration looks valid.'
+    : 'Check the Python/executable path and model name (e.g. tiny, base, small, medium).';
   return result;
 });
 
