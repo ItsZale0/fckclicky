@@ -140,7 +140,7 @@ $('#autoSetup').addEventListener('click', async () => {
     if (res && res.ok) {
       $('#whisperBin').value = res.bin;
       $('#whisperModel').value = res.model;
-      autoLogAppend('✓ Done. Fields have been filled in — click “Save and continue”.');
+      autoLogAppend('Done. Fields have been filled in. Click "Save and continue".');
     } else {
       autoLogAppend('Installation finished with an unexpected result: ' + JSON.stringify(res || {}));
     }

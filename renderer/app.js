@@ -1,4 +1,4 @@
-﻿const $ = (s) => document.querySelector(s);
+const $ = (s) => document.querySelector(s);
 const statusText = $('#statusText');
 const statusDot = $('#statusDot') || $('.status-dot');
 const transcriptEl = $('#transcript');
@@ -109,9 +109,9 @@ const uiSound = {
 // Centralized notch/status copy (English, short labels for the 24px status line).
 const COPY = {
   ready: 'Ready - Hold Ctrl + Alt to speak',
-  listening: 'Listeningâ€¦',
-  thinking: 'Thinkingâ€¦',
-  speaking: 'Speakingâ€¦',
+  listening: 'Listening...',
+  thinking: 'Thinking...',
+  speaking: 'Speaking...',
   tray: 'In tray - Hold Ctrl + Alt to speak',
   cancelled: 'Cancelled - Hold Ctrl + Alt to speak'
 };
@@ -576,7 +576,7 @@ async function startVoice() {
     setStatus(full.slice(0, 80), 'error');
     console.error('[renderer] mic error', err?.stack || err);
     try { window.fckclicky?.log?.('mic error: ' + (err?.stack || err?.message || err)); } catch {}
-    showTranscript(full + ' â€” Check Windows Privacy > Microphone, default input device, and app permissions.', 16000);
+    showTranscript(full + ' - Check Windows Privacy > Microphone, default input device, and app permissions.', 16000);
     cleanupRecording();
   }
 }
@@ -601,7 +601,7 @@ async function stopVoice() {
   recording = false;
   uiSound.listenStop();
   setStatus(COPY.thinking, 'thinking');
-  showTranscript('Processingâ€¦');
+  showTranscript('Processing...');
   try { window.fckclicky?.log?.('stopVoice: stopping recorder'); } catch {}
 
   try {

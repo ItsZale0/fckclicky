@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, screen, globalShortcut, desktopCapturer, clipboard, Tray, Menu, nativeImage, dialog, nativeTheme, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, desktopCapturer, clipboard, Tray, Menu, nativeImage, dialog, nativeTheme, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -1011,7 +1011,7 @@ async function setupFasterWhisper(log, modelName) {
   }
   log('    Python: ' + python);
 
-  log('2/4 Installo/aggiorno faster-whisper (pip, puÃ² richiedere qualche minuto)...');
+  log('2/4 Installo/aggiorno faster-whisper (pip, puo richiedere qualche minuto)...');
   const pip = await runCmd(python, ['-m', 'pip', 'install', '--upgrade', 'faster-whisper'], 900000);
   if (!pip.ok) {
     // try --user fallback
@@ -1045,7 +1045,7 @@ ipcMain.handle('whisper-auto-setup', async (e, opts = {}) => {
   const model = (opts && opts.model && String(opts.model).trim()) || (cfg.local_whisper_model || 'base');
   log('Starting automatic faster-whisper (SYSTRAN) installation...');
   const res = await setupFasterWhisper(log, model);
-  log('âœ... Completato!');
+  log('Completed.');
   return { ok: true, ...res };
 });
 

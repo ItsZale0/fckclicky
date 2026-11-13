@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -365,8 +365,8 @@
       <h2><span class="glyph" aria-hidden="true">&#xE720;</span> Speech recognition</h2>
       <label class="field">Provider
         <select id="sttProvider">
-          <option value="remote">Remote API ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â OpenAI-compatible (/audio/transcriptions)</option>
-          <option value="local_whisper">Locale ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â faster-whisper (SYSTRAN)</option>
+          <option value="remote">Remote API - OpenAI-compatible (/audio/transcriptions)</option>
+          <option value="local_whisper">Locale - faster-whisper (SYSTRAN)</option>
         </select>
       </label>
 
@@ -375,7 +375,7 @@
           <input id="baseUrl" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
         </label>
         <label class="field">API Key (opzionale)
-          <input id="apiKey" type="password" placeholder="sk-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" />
+          <input id="apiKey" type="password" placeholder="sk-..." />
         </label>
         <label class="field">Model STT remoto
           <input id="sttModel" spellcheck="false" placeholder="auto" />
@@ -409,7 +409,7 @@
           <input id="whisperModel" spellcheck="false" placeholder="base" />
         </label>
         <label class="field">Argomenti (opzionale, usa {model} {input} {output})
-          <input id="whisperArgs" spellcheck="false" placeholder='"C:\ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦\transcribe.py" {input} {model}' />
+          <input id="whisperArgs" spellcheck="false" placeholder='"C:\\path\\to\\transcribe.py" {input} {model}' />
         </label>
         <div style="margin-top:10px;">
           <button id="checkWhisper" class="btn" type="button">
