@@ -52,6 +52,25 @@ let recordingStream = null;
 let recording = false;
 let voiceHoldActive = false;
 let micRequestPending = false;
+let transcriptTimer = null;
+let mediaRecorderPromise = null;
+let currentTtsAudio = null;
+let currentTtsUrl = null;
+
+function stopSpeaking(resetStatus = false) {
+  try {
+    if (currentTtsAudio) {
+      currentTtsAudio.onended = null;
+      currentTtsAudio.onerror = null;
+      try { currentTtsAudio.pause(); } catch {}
+      try { currentTtsAudio.currentTime = 0; } catch {}
+    }
+  } catch {}
+  try { if (currentTtsUrl) URL.revokeObjectURL(currentTtsUrl); } catch {}
+  currentTtsAudio = null;
+  currentTtsUrl = null;
+  if (resetStatus) setStatus(COPY.ready, 'ok');
+}
 
 // ===== UI Sounds (Web Audio, synthesized) =====
 let audioCtx = null;
@@ -258,6 +277,7 @@ async function openSettings() {
     ensureSelectHasValue($('#cfgVisionModel'), cfg.vision_model || 'auto');
     ensureSelectHasValue($('#cfgSttModel'), cfg.stt_model || 'auto');
     ensureSelectHasValue($('#cfgTtsModel'), cfg.tts_model || 'auto');
+    if ($('#cfgTtsVoice')) $('#cfgTtsVoice').value = cfg.tts_voice || 'alloy';
     if ($('#cfgSttProvider')) $('#cfgSttProvider').value = cfg.stt_provider || 'remote';
     if ($('#cfgWhisperBin')) $('#cfgWhisperBin').value = cfg.local_whisper_bin || '';
     if ($('#cfgWhisperModel')) $('#cfgWhisperModel').value = cfg.local_whisper_model || '';
@@ -324,6 +344,7 @@ $('#saveSettingsBtn')?.addEventListener('click', async () => {
       vision_model: $('#cfgVisionModel')?.value.trim() || 'auto',
       stt_model: $('#cfgSttModel')?.value.trim() || 'auto',
       tts_model: $('#cfgTtsModel')?.value.trim() || 'auto',
+      tts_voice: $('#cfgTtsVoice')?.value.trim() || 'alloy',
       stt_provider: $('#cfgSttProvider')?.value || 'remote',
       local_whisper_bin: $('#cfgWhisperBin')?.value.trim() || '',
       local_whisper_model: $('#cfgWhisperModel')?.value.trim() || '',
@@ -494,9 +515,10 @@ function replayNotchEntrance() {
 try { window.fckclicky?.onUiShown?.(replayNotchEntrance); } catch {}
 
 window.fckclicky?.onAssistantHoldStart?.(() => {
-  // Ctrl + Alt pressed: start listening (push-to-talk)
+  // Ctrl + Alt pressed: interrupt speech if playing, then start listening (push-to-talk) to restart cycle
   replayNotchEntrance();
   voiceHoldActive = true;
+  stopSpeaking(false);
   try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
   try { window.fckclicky?.setOverlayAnnotations?.([]); } catch {}
   try { window.fckclicky?.log?.('hold-start received'); } catch {}
@@ -525,6 +547,7 @@ window.fckclicky?.onAssistantHoldStop?.(() => {
 window.fckclicky?.onAssistantIdle?.(() => {
   // Automatic idle after inactivity/release
   voiceHoldActive = false;
+  stopSpeaking(false);
   try { if (recording) cleanupRecording(); } catch {}
   closeSettings();
   setStatus(COPY.ready, 'ok');
@@ -694,6 +717,7 @@ async function stopVoice() {
 
     // Optional TTS
     try {
+      stopSpeaking(false);
       if (window.fckclicky?.aiTts) {
         const tts = await window.fckclicky.aiTts({ text: answer.slice(0, 600) });
         if (tts && tts.binary) {
@@ -701,10 +725,22 @@ async function stopVoice() {
           const audioBlob = new Blob([bytes], { type: tts.contentType || 'audio/mpeg' });
           const url = URL.createObjectURL(audioBlob);
           const audio = new Audio(url);
+          currentTtsAudio = audio;
+          currentTtsUrl = url;
           setStatus(COPY.speaking, 'speaking');
-          audio.onended = () => { URL.revokeObjectURL(url); setStatus(COPY.ready, 'ok'); };
-          audio.onerror = () => { URL.revokeObjectURL(url); setStatus(COPY.ready, 'ok'); };
-          audio.play().catch(() => { URL.revokeObjectURL(url); setStatus(COPY.ready, 'ok'); });
+          const finish = () => {
+            if (currentTtsAudio === audio) {
+              try { URL.revokeObjectURL(url); } catch {}
+              currentTtsAudio = null;
+              currentTtsUrl = null;
+            } else {
+              try { URL.revokeObjectURL(url); } catch {}
+            }
+            setStatus(COPY.ready, 'ok');
+          };
+          audio.onended = finish;
+          audio.onerror = finish;
+          await audio.play().catch(finish);
         }
       }
     } catch (_) {

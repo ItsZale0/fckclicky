@@ -29,6 +29,7 @@ const DEFAULT_CONFIG = {
   chat_model: 'auto',
   stt_model: 'auto',
   tts_model: 'auto',
+  tts_voice: 'alloy',
   stt_provider: 'remote', // 'remote' | 'local_whisper'
   local_whisper_bin: '',
   local_whisper_model: '',
@@ -653,7 +654,16 @@ ipcMain.handle('overlay-set-interactive', (e, interactive) => {
   overlayWin.webContents.send('overlay-interactive', !!interactive);
   return true;
 });
-ipcMain.handle('overlay-set-subtitle', (e, payload) => { if (!overlayWin) createOverlayWindow(); overlayWin.webContents.send('overlay-subtitle', payload); });
+ipcMain.handle('overlay-set-subtitle', (e, payload) => {
+  if (!overlayWin) createOverlayWindow();
+  try {
+    if (payload && !payload.clear && payload.text) {
+      overlayWin.showInactive();
+      overlayWin.setIgnoreMouseEvents(true, { forward: true });
+    }
+  } catch {}
+  overlayWin.webContents.send('overlay-subtitle', payload);
+});
 ipcMain.handle('overlay-set-annotations', (e, payload) => {
   if (!overlayWin) createOverlayWindow();
   const list = Array.isArray(payload) ? payload : (payload ? [payload] : []);
@@ -765,7 +775,10 @@ ipcMain.handle('ai-test', async () => {
 ipcMain.handle('ai-chat', async (e, { messages, stream, context }) => {
   const cfg = ensureConfig();
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
-  const body = { model: cfg.chat_model || 'auto', messages, stream: !!stream, temperature: 0.2 };
+  const ctxBlock = context ? buildContextBlock(context) : '';
+  const systemMsg = { role: 'system', content: 'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (0..1 = fraction of screen width/height). Also suggest quick actions as [ACTION:action_id:label].' + (ctxBlock ? ('\n\n' + ctxBlock) : '') };
+  const finalMessages = Array.isArray(messages) ? [systemMsg, ...messages] : [systemMsg];
+  const body = { model: cfg.chat_model || 'auto', messages: finalMessages, stream: !!stream, temperature: 0.2 };
   if (stream) {
     let full = '';
     await requestJson(url, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, cfg.ai_api_key?{Authorization:'Bearer '+cfg.ai_api_key}:{}) }, body, true, (ev) => {
@@ -784,7 +797,7 @@ ipcMain.handle('ai-vision', async (e, { prompt, imageBase64, stream }) => {
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
   const dataUrl = 'data:image/png;base64,' + imageBase64;
   const messages = [
-    { role:'system', content:'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates. Also suggest quick actions as [ACTION:action_id:label].' },
+    { role:'system', content:'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (0..1 = fraction of screen width/height). Also suggest quick actions as [ACTION:action_id:label].' },
     { role:'user', content:[ {type:'text', text: prompt}, {type:'image_url', image_url:{url:dataUrl}} ] }
   ];
   const body = { model: cfg.vision_model || cfg.chat_model || 'auto', messages, stream: !!stream, temperature: 0.2 };
@@ -804,7 +817,7 @@ ipcMain.handle('ai-vision', async (e, { prompt, imageBase64, stream }) => {
 ipcMain.handle('ai-tts', async (e, { text }) => {
   const cfg = ensureConfig();
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/audio/speech';
-  const body = { model: cfg.tts_model || 'auto', input: text, voice: 'alloy' };
+  const body = { model: cfg.tts_model || 'auto', input: text, voice: cfg.tts_voice || 'alloy' };
   return await requestJson(url, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, cfg.ai_api_key?{Authorization:'Bearer '+cfg.ai_api_key}:{}), binary: true }, body, false, null);
 });
 
