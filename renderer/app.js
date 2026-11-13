@@ -498,6 +498,7 @@ window.fckclicky?.onAssistantHoldStart?.(() => {
   replayNotchEntrance();
   voiceHoldActive = true;
   try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
+  try { window.fckclicky?.setOverlayAnnotations?.([]); } catch {}
   try { window.fckclicky?.log?.('hold-start received'); } catch {}
   if (!recording) {
     setStatus(COPY.listening, 'listening');
@@ -529,6 +530,7 @@ window.fckclicky?.onAssistantIdle?.(() => {
   setStatus(COPY.ready, 'ok');
   try { transcriptEl?.classList.remove('show'); } catch {}
   try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
+  try { window.fckclicky?.setOverlayAnnotations?.([]); } catch {}
   try {
     if (notchEl) {
       notchEl.classList.add('notch-out');
@@ -683,6 +685,7 @@ async function stopVoice() {
     }
 
     answer = (answer || '').trim() || 'No response from the model.';
+    try { syncAnnotations(answer); } catch {}
     uiSound.success();
     setStatus(COPY.ready, 'ok');
     try { transcriptEl?.classList.remove('show'); } catch {}
@@ -730,6 +733,27 @@ function extractContent(res) {
   return JSON.stringify(res);
 }
 
+// Parse the AI's drawing tags from a response and push them to the overlay.
+// Supported: [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label]
+function syncAnnotations(text) {
+  if (!text || !window.fckclicky?.setOverlayAnnotations) return;
+  const list = [];
+  const re = /\[(POINT|BOX|ARROW|CIRCLE):([0-9.]+),([0-9.]+)(?:,([0-9.]+),([0-9.]+))?(?:,([0-9.]+))?(?::([^\]]+))?\]/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const type = m[1];
+    const a = { type, x: parseFloat(m[2]), y: parseFloat(m[3]) };
+    if (type === 'BOX') { a.w = parseFloat(m[4]); a.h = parseFloat(m[5]); }
+    else if (type === 'ARROW') { a.x2 = parseFloat(m[4]); a.y2 = parseFloat(m[5]); }
+    else if (type === 'CIRCLE') { a.r = parseFloat(m[4]); }
+    if (m[7]) a.label = m[7].trim();
+    list.push(a);
+  }
+  if (list.length) {
+    try { window.fckclicky.setOverlayAnnotations(list); } catch {}
+  }
+}
+
 function cleanupRecording() {
   try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch {}
   try { recordingStream?.getTracks?.().forEach(t => t.stop()); } catch {}
@@ -760,6 +784,7 @@ function cancelAssistant() {
   recording = false;
   try { window.fckclicky?.hideOverlay?.(); } catch {}
   try { window.fckclicky?.setOverlaySubtitle?.({ clear: true }); } catch {}
+  try { window.fckclicky?.setOverlayAnnotations?.([]); } catch {}
   closeSettings();
   setStatus(COPY.ready, 'ok');
   try { transcriptEl?.classList.remove('show'); } catch {}

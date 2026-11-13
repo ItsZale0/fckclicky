@@ -654,6 +654,17 @@ ipcMain.handle('overlay-set-interactive', (e, interactive) => {
   return true;
 });
 ipcMain.handle('overlay-set-subtitle', (e, payload) => { if (!overlayWin) createOverlayWindow(); overlayWin.webContents.send('overlay-subtitle', payload); });
+ipcMain.handle('overlay-set-annotations', (e, payload) => {
+  if (!overlayWin) createOverlayWindow();
+  const list = Array.isArray(payload) ? payload : (payload ? [payload] : []);
+  overlayWin.webContents.send('overlay-annotations', list);
+  return { ok: true, count: list.length };
+});
+ipcMain.handle('get-active-context', () => getActiveWindowContext());
+ipcMain.handle('get-quick-actions', () => {
+  const ctx = getActiveWindowContext();
+  return { ctx, actions: getQuickActionsForContext(ctx) };
+});
 ipcMain.handle('overlay-set-cursor', (e, payload) => {
   if (!overlayWin) createOverlayWindow();
   overlayWin.webContents.send('overlay-cursor', payload);
@@ -751,7 +762,7 @@ ipcMain.handle('ai-test', async () => {
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/models';
   return await requestJson(url, { method:'GET', headers: cfg.ai_api_key ? { Authorization: 'Bearer '+cfg.ai_api_key } : {} });
 });
-ipcMain.handle('ai-chat', async (e, { messages, stream }) => {
+ipcMain.handle('ai-chat', async (e, { messages, stream, context }) => {
   const cfg = ensureConfig();
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
   const body = { model: cfg.chat_model || 'auto', messages, stream: !!stream, temperature: 0.2 };
@@ -773,7 +784,7 @@ ipcMain.handle('ai-vision', async (e, { prompt, imageBase64, stream }) => {
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
   const dataUrl = 'data:image/png;base64,' + imageBase64;
   const messages = [
-    { role:'system', content:'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates.' },
+    { role:'system', content:'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates. Also suggest quick actions as [ACTION:action_id:label].' },
     { role:'user', content:[ {type:'text', text: prompt}, {type:'image_url', image_url:{url:dataUrl}} ] }
   ];
   const body = { model: cfg.vision_model || cfg.chat_model || 'auto', messages, stream: !!stream, temperature: 0.2 };
@@ -1095,6 +1106,47 @@ ipcMain.handle('type-text', async (e, text) => {
   }
   return { ok: true, pasted: false };
 });
+
+
+// ===== Active-window context (intelligent app/URL detection) =====
+let activeWindowCache = { title: '', app: '', url: '', ts: 0 };
+function getActiveWindowContext() {
+  if (process.platform !== 'win32') return activeWindowCache;
+  if (Date.now() - activeWindowCache.ts < 1500) return activeWindowCache;
+  // Simplified: just return empty for now, will implement properly later
+  activeWindowCache.ts = Date.now();
+  return activeWindowCache;
+}
+
+const INTEGRATIONS = {
+  github: { url: /github\.com/, actions: [
+    { id: 'summarize_prs', label: 'Summarize open PRs' },
+    { id: 'review_recent_commits', label: 'Review recent commits' }
+  ]},
+  youtube: { url: /youtube\.com/, actions: [
+    { id: 'summarize_video', label: 'Summarize video' },
+    { id: 'extract_transcript', label: 'Extract transcript' }
+  ]}
+};
+
+function getQuickActionsForContext(ctx) {
+  if (!ctx) return [];
+  for (const [name, cfg] of Object.entries(INTEGRATIONS)) {
+    if (cfg.url && ctx.url && cfg.url.test(ctx.url)) return cfg.actions;
+  }
+  return [];
+}
+
+function buildContextBlock(ctx) {
+  if (!ctx || (!ctx.title && !ctx.app && !ctx.url)) return '';
+  const integrations = Object.keys(INTEGRATIONS).filter(n => {
+    const c = INTEGRATIONS[n];
+    return ctx.url && c.url.test(ctx.url);
+  });
+  const actions = getQuickActionsForContext(ctx);
+  const actionsStr = actions.length ? '\nSuggested: ' + actions.map(a => '[' + a.id + '] ' + a.label).join(', ') : '';
+  return 'Context: ' + (ctx.title || '') + actionsStr;
+}
 
 // Draw/3D window removed (engine assets of unverified provenance excluded for open-source compliance).
 function createSetupWindow() {

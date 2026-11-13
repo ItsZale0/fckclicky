@@ -109,6 +109,71 @@
     const hint = document.getElementById('hint');
     const subtitleEl = document.getElementById('subtitle');
 
+    // Separate annotation canvas (layer "a") for AI-drawn overlays (points/boxes/arrows/circles)
+    const aCanvas = document.createElement('canvas');
+    aCanvas.id = 'a';
+    aCanvas.style.cssText = 'position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:6;';
+    document.body.appendChild(aCanvas);
+    const aCtx = aCanvas.getContext('2d');
+    let annotations = [];
+
+    function resizeAnnotations() {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      aCanvas.width = Math.floor(window.innerWidth * dpr);
+      aCanvas.height = Math.floor(window.innerHeight * dpr);
+      aCanvas.style.width = window.innerWidth + 'px';
+      aCanvas.style.height = window.innerHeight + 'px';
+      aCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', resizeAnnotations);
+    resizeAnnotations();
+
+    function renderAnnotations() {
+      aCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      annotations.forEach(a => {
+        const x = a.x * window.innerWidth, y = a.y * window.innerHeight;
+        aCtx.strokeStyle = 'rgba(96, 205, 255, 0.95)';
+        aCtx.fillStyle = 'rgba(96, 205, 255, 0.22)';
+        aCtx.lineWidth = 3;
+        aCtx.shadowColor = 'rgba(96, 205, 255, 0.6)';
+        aCtx.shadowBlur = 12;
+        if (a.type === 'BOX') {
+          const w = a.w * window.innerWidth, h = a.h * window.innerHeight;
+          aCtx.strokeRect(x, y, w, h);
+          aCtx.fillRect(x, y, w, h);
+        } else if (a.type === 'CIRCLE') {
+          const r = (a.r || 0.05) * Math.min(window.innerWidth, window.innerHeight);
+          aCtx.beginPath();
+          aCtx.arc(x, y, r, 0, Math.PI * 2);
+          aCtx.stroke();
+        } else if (a.type === 'ARROW') {
+          const x2 = a.x2 * window.innerWidth, y2 = a.y2 * window.innerHeight;
+          aCtx.beginPath();
+          aCtx.moveTo(x, y);
+          aCtx.lineTo(x2, y2);
+          aCtx.stroke();
+        } else { // POINT (default)
+          aCtx.beginPath();
+          aCtx.arc(x, y, 8, 0, Math.PI * 2);
+          aCtx.fill();
+        }
+        if (a.label) {
+          aCtx.shadowBlur = 0;
+          aCtx.fillStyle = 'rgba(255,255,255,0.95)';
+          aCtx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+          const tw = aCtx.measureText(a.label).width;
+          aCtx.fillStyle = 'rgba(0,0,0,0.55)';
+          aCtx.fillRect(x + 10, y - 22, tw + 14, 22);
+          aCtx.fillStyle = '#fff';
+          aCtx.fillText(a.label, x + 17, y - 7);
+        }
+      });
+    }
+    window.fckclicky?.onOverlayAnnotations?.((list) => {
+      annotations = Array.isArray(list) ? list : [];
+      renderAnnotations();
+    });
+
     function escapeHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }

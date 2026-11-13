@@ -50,6 +50,10 @@ contextBridge.exposeInMainWorld('fckclicky', {
   onOverlayMode: (cb) => ipcRenderer.on('overlay-set-mode', (e, d) => cb(d)),
   overlaySetInteractive: (v) => ipcRenderer.invoke('overlay-set-interactive', v),
   reportSelection: (rect) => ipcRenderer.invoke('overlay-report-selection', rect),
+  onOverlayAnnotations: (cb) => ipcRenderer.on('overlay-annotations', (e, d) => cb(d)),
+  setOverlayAnnotations: (list) => ipcRenderer.invoke('overlay-set-annotations', list),
+  getActiveContext: () => ipcRenderer.invoke('get-active-context'),
+  getQuickActions: () => ipcRenderer.invoke('get-quick-actions'),
   
   // ===== Window control =====
   setWindowSize: (opts) => ipcRenderer.invoke('set-window-size', opts),
