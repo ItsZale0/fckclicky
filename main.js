@@ -23,7 +23,7 @@ let autoPointerActive = false;
 const CONFIG_DIR = path.join(process.env.LOCALAPPDATA || os.homedir(), 'FckClicky');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 const DEFAULT_CONFIG = {
-  ai_base_url: 'http://127.0.0.1:31415/v1',
+  ai_base_url: '',
   ai_api_key: '',
   vision_model: 'auto',
   chat_model: 'auto',
