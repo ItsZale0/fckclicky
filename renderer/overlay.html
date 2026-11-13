@@ -55,7 +55,7 @@
   </style>
 </head>
 <body>
-  <div id="hint">Puntatore attivo • cerchia un'area per selezionarla • tieni Ctrl+Alt per parlare</div>
+  <div id="hint">Pointer active - circle an area to select it - hold Ctrl+Alt to speak</div>
   <canvas id="c"></canvas>
   <canvas id="u"></canvas>
   <canvas id="r"></canvas>
@@ -200,7 +200,7 @@
         if (mode === 'pointer') {
           overlayActive = true;
           if (hint) {
-            hint.textContent = "Puntatore attivo • cerchia un'area per selezionarla • tieni Ctrl+Alt per parlare";
+            hint.textContent = "Pointer active - circle an area to select it - hold Ctrl+Alt to speak";
             hint.style.opacity = '1';
             hint.style.transform = 'translateX(-50%) translateY(0px)';
           }

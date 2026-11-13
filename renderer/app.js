@@ -108,12 +108,12 @@ const uiSound = {
 
 // Centralized notch/status copy (English, short labels for the 24px status line).
 const COPY = {
-  ready: 'Ready Â· Hold Ctrl+Alt to speak',
+  ready: 'Ready - Hold Ctrl+Alt to speak',
   listening: 'Listeningâ€¦',
   thinking: 'Thinkingâ€¦',
   speaking: 'Speakingâ€¦',
-  tray: 'In tray Â· Hold Ctrl+Alt to speak',
-  cancelled: 'Cancelled Â· Hold Ctrl+Alt to speak'
+  tray: 'In tray - Hold Ctrl+Alt to speak',
+  cancelled: 'Cancelled - Hold Ctrl+Alt to speak'
 };
 
 function setStatus(msg, kind='ok') {
@@ -564,7 +564,7 @@ async function startVoice() {
     recording = true;
     uiSound.listenStart();
     setStatus(COPY.listening, 'listening');
-    showTranscript('Listeningâ€¦ release Ctrl+Alt to send');
+    showTranscript('Listening... release Ctrl+Alt to send');
     try { window.fckclicky?.log?.('startVoice: recording started, mime=' + mime); } catch {}
   } catch (err) {
     micRequestPending = false;
