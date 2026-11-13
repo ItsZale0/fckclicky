@@ -1,0 +1,773 @@
+﻿<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>FckClicky</title>
+  <style>
+    /* =========================================================
+       Windows 11 / WinUI 3 (Fluent) design tokens
+       - theme aware (dark / light)
+       - system accent color injected at runtime via IPC
+       - High Contrast + reduced motion + no-backdrop fallbacks
+       ========================================================= */
+    :root {
+      color-scheme: dark light;
+
+      /* accent (runtime override) + derived values */
+      --accent: #60cdff;
+      --accent-fill: #60cdff;
+      --accent-text: #003a5c;
+      --accent-subtle: rgba(96, 205, 255, 0.14);
+
+      /* WinUI dark theme layers */
+      --layer: rgba(255, 255, 255, 0.0605);
+      --layer-alt: rgba(255, 255, 255, 0.0419);
+      --layer-hover: rgba(255, 255, 255, 0.0837);
+      --layer-pressed: rgba(255, 255, 255, 0.0326);
+      --card-bg: rgba(43, 43, 43, 0.98);
+      --flyout-bg: #2b2b2b;
+      --stroke: rgba(255, 255, 255, 0.0698);
+      --stroke-strong: rgba(255, 255, 255, 0.12);
+      --divider: rgba(255, 255, 255, 0.08);
+
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.786);
+      --text-tertiary: rgba(255, 255, 255, 0.544);
+      --text-disabled: rgba(255, 255, 255, 0.363);
+
+      --success: #6ccb5f;
+      --critical: #ff99a4;
+      --caution: #fce100;
+
+      --radius-control: 4px;
+      --radius-overlay: 8px;
+      --radius-card: 8px;
+
+      --shadow-flyout: 0 16px 40px rgba(0, 0, 0, 0.46), 0 2px 8px rgba(0, 0, 0, 0.28);
+      --shadow-notch: 0 8px 24px rgba(0, 0, 0, 0.34);
+      --ease-standard: cubic-bezier(0.1, 0.9, 0.2, 1);
+      /* Apple-style motion: long, decelerating curves + spring overshoot */
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --ease-spring: cubic-bezier(0.34, 1.46, 0.64, 1);
+      --dur-1: 140ms;
+      --dur-2: 220ms;
+      --dur-3: 340ms;
+      --dur-4: 520ms;
+
+      --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --font-icon: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+
+      /* dropdown chevron, recoloured per theme */
+      --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-opacity='.7' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+
+    /* Light theme — follows the OS (and the .theme-light class from IPC) */
+    @media (prefers-color-scheme: light) {
+      :root {
+        --layer: rgba(255, 255, 255, 0.7);
+        --layer-alt: rgba(255, 255, 255, 0.5);
+        --layer-hover: rgba(249, 249, 249, 0.55);
+        --layer-pressed: rgba(249, 249, 249, 0.3);
+        --card-bg: rgba(255, 255, 255, 0.98);
+        --flyout-bg: #f9f9f9;
+        --stroke: rgba(0, 0, 0, 0.0578);
+        --stroke-strong: rgba(0, 0, 0, 0.1);
+        --divider: rgba(0, 0, 0, 0.06);
+        --text-primary: #1a1a1a;
+        --text-secondary: rgba(0, 0, 0, 0.606);
+        --text-tertiary: rgba(0, 0, 0, 0.446);
+        --text-disabled: rgba(0, 0, 0, 0.363);
+        --success: #0f7b0f;
+        --critical: #c42b1c;
+        --caution: #9d5d00;
+        --shadow-flyout: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+        --shadow-notch: 0 8px 24px rgba(0, 0, 0, 0.16);
+        --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000000' stroke-opacity='.62' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+    }
+    html.theme-light {
+      --layer: rgba(255, 255, 255, 0.7);
+      --layer-alt: rgba(255, 255, 255, 0.5);
+      --layer-hover: rgba(249, 249, 249, 0.55);
+      --layer-pressed: rgba(249, 249, 249, 0.3);
+      --card-bg: rgba(255, 255, 255, 0.7);
+      --flyout-bg: rgba(249, 249, 249, 0.92);
+      --stroke: rgba(0, 0, 0, 0.0578);
+      --stroke-strong: rgba(0, 0, 0, 0.1);
+      --divider: rgba(0, 0, 0, 0.06);
+      --text-primary: #1a1a1a;
+      --text-secondary: rgba(0, 0, 0, 0.606);
+      --text-tertiary: rgba(0, 0, 0, 0.446);
+      --text-disabled: rgba(0, 0, 0, 0.363);
+      --success: #0f7b0f;
+      --critical: #c42b1c;
+      --caution: #9d5d00;
+      --shadow-flyout: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+      --shadow-notch: 0 8px 24px rgba(0, 0, 0, 0.16);
+      --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000000' stroke-opacity='.62' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-primary);
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Segoe Fluent icon rendering helper */
+    .glyph {
+      font-family: var(--font-icon);
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      display: inline-block;
+      speak: never;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =========================================================
+       Notch bar — Acrylic flyout, WinUI elevation + hairline
+       ========================================================= */
+    #notch {
+      position: fixed;
+      top: 2px;
+      left: 3px;
+      right: 3px;
+      width: auto;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 3px 0 6px;
+      transform-origin: 50% 0;
+      background: var(--flyout-bg);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-overlay);
+      box-shadow: var(--shadow-notch);
+      z-index: 1000;
+      -webkit-app-region: drag;
+      animation: notchIn 480ms var(--ease-out-expo) backwards;
+    }
+    #notch.notch-out { animation: notchOut 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+    /* Fluid, decelerating entrance. `backwards` (not `both`) is important:
+       it drops the filter/compositing once the animation ends, so text stays crisp. */
+    @keyframes notchIn {
+      0%   { opacity: 0; transform: scale(0.92); filter: blur(8px); }
+      55%  { opacity: 1; filter: blur(0); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+    @keyframes notchOut {
+      0%   { opacity: 1; transform: scale(1); filter: blur(0); }
+      100% { opacity: 0; transform: scale(0.96); filter: blur(6px); }
+    }
+
+    /* Staggered content: the bar settles, then the pieces resolve into focus */
+    #notch .brand    { animation: pieceIn 560ms var(--ease-out-expo) 60ms backwards; }
+    #notch .status   { animation: fadeIn 620ms var(--ease-out-expo) 90ms backwards; }
+    #notch .controls { animation: pieceIn 560ms var(--ease-out-expo) 150ms backwards; }
+    @keyframes pieceIn {
+      0%   { opacity: 0; transform: scale(0.86); filter: blur(5px); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+    @keyframes fadeIn {
+      0%   { opacity: 0; filter: blur(5px); }
+      100% { opacity: 1; filter: blur(0); }
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 18px;
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      pointer-events: none;
+    }
+    .brand .logo {
+      width: 14px; height: 14px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 4px;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-family: var(--font-icon);
+      font-size: 9px;
+      line-height: 1;
+    }
+    .brand span { display: none; } /* keep the notch compact */
+
+    .status {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 74px;
+      overflow: hidden;
+      color: var(--text-primary);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1px;
+      pointer-events: none;
+    }
+    #statusText {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .status-dot {
+      width: 5px; height: 5px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--success);
+      transition: background 0.25s var(--ease-standard), transform 0.25s var(--ease-standard);
+    }
+    /* Only "listening" pulses: it is the one state where motion carries meaning. */
+    .status-dot.busy { background: var(--accent); }
+    .status-dot.listening { background: var(--accent); animation: dotPulse 1s ease-in-out infinite; }
+    .status-dot.thinking { background: var(--accent); }
+    .status-dot.speaking { background: var(--success); }
+    .status-dot.error { background: var(--critical); }
+
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.32); opacity: 0.72; }
+    }
+
+    /* Caption-style controls (WinUI 3) */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: auto;
+      -webkit-app-region: no-drag;
+    }
+    .icon-btn {
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--radius-control);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-icon);
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .icon-btn .glyph { display: inline-block; transition: transform 320ms var(--ease-out-expo); }
+    .icon-btn:hover {
+      background: var(--layer-hover);
+      color: var(--text-primary);
+    }
+    #settingsBtn:hover .glyph { transform: rotate(25deg); }
+    .icon-btn:active { background: var(--layer-pressed); }
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--text-primary);
+      outline-offset: 2px;
+    }
+    .icon-btn.close:hover {
+      background: #c42b1c;
+      color: #ffffff;
+    }
+    .icon-btn.close:active { background: #b12a1c; }
+
+    /* =========================================================
+       Transcript / detail surface — WinUI TeachingTip
+       ========================================================= */
+    #transcript {
+      position: fixed;
+      top: 34px;
+      left: 6px;
+      right: 6px;
+      margin: 0 auto;
+      transform: translateY(-10px) scale(0.97);
+      max-width: 520px;
+      max-height: 240px;
+      overflow: auto;
+      padding: 10px 12px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-overlay);
+      background: var(--flyout-bg);
+      box-shadow: var(--shadow-flyout);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999;
+      transform-origin: 50% 0;
+      transition: opacity 260ms var(--ease-out-expo), transform 380ms var(--ease-out-expo);
+    }
+    #transcript.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* =========================================================
+       Settings flyout — Fluent controls
+       ========================================================= */
+    .flyout {
+      position: fixed;
+      top: 34px;
+      left: 4px;
+      right: 4px;
+      margin: 0 auto;
+      display: none;
+      max-width: 524px;
+      max-height: calc(100% - 40px);
+      overflow: auto;
+      padding: 0 0 10px;
+      background: var(--flyout-bg);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-overlay);
+      box-shadow: var(--shadow-flyout);
+      color: var(--text-primary);
+      z-index: 1001;
+      -webkit-app-region: no-drag;
+      transform-origin: 50% 0;
+      animation: flyoutIn 460ms var(--ease-out-expo) backwards;
+    }
+    @keyframes flyoutIn {
+      0%   { opacity: 0; transform: translateY(-16px) scale(0.965); filter: blur(10px); }
+      55%  { opacity: 1; filter: blur(0); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+    @keyframes flyoutOut {
+      0%   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      100% { opacity: 0; transform: translateY(-10px) scale(0.975); filter: blur(8px); }
+    }
+    .flyout.closing {
+      animation: flyoutOut 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+      pointer-events: none;
+    }
+
+    /* Staggered reveal of the setting cards (the "settle" of the flyout) */
+    .flyout-body > .group {
+      animation: cardIn 520ms var(--ease-out-expo) backwards;
+    }
+    .flyout-body > .group:nth-of-type(1) { animation-delay: 80ms; }
+    .flyout-body > .group:nth-of-type(2) { animation-delay: 150ms; }
+    .flyout-body > .group:nth-of-type(3) { animation-delay: 220ms; }
+    .flyout .flyout-foot { animation: cardIn 520ms var(--ease-out-expo) 280ms backwards; }
+    @keyframes cardIn {
+      0%   { opacity: 0; transform: translateY(12px) scale(0.985); filter: blur(4px); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    .flyout-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 10px 9px 14px;
+      background: var(--flyout-bg);
+      border-bottom: 1px solid var(--divider);
+    }
+    .flyout-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
+    }
+    .flyout-title .glyph { font-size: 13px; color: var(--text-secondary); }
+    .flyout-body { padding: 0 10px; }
+
+    .group {
+      margin: 8px 2px 0;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-card);
+      background: var(--layer-alt);
+    }
+    .group-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.1px;
+    }
+    .group-title .glyph { font-size: 12.5px; color: var(--accent); }
+    .group-hint {
+      margin: -2px 0 10px;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .field { display: block; margin-bottom: 10px; }
+    .field:last-child { margin-bottom: 0; }
+    .field > .label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .textbox, .combo {
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      background: var(--layer);
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-control);
+      transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+      outline: none;
+    }
+    .textbox::placeholder { color: var(--text-tertiary); }
+    .textbox:hover, .combo:hover { background: var(--layer-hover); }
+    .textbox:focus, .combo:focus {
+      border-color: var(--accent);
+      box-shadow: inset 0 -2px 0 var(--accent); /* WinUI underline without moving text */
+    }
+    .textbox:focus-visible, .combo:focus-visible {
+      outline: 1px solid transparent; /* WinUI uses the accent underline */
+    }
+
+    .combo {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 30px;
+      background-image: var(--chevron);
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      cursor: pointer;
+    }
+    .combo option {
+      background: var(--flyout-bg);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+    }
+
+    /* Two-column responsive grid (WinUI settings layout) */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    @media (max-width: 430px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Buttons — WinUI 3 standard + accent */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-control);
+      background: var(--layer);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+    }
+    .btn:hover { background: var(--layer-hover); }
+    .btn:active { background: var(--layer-pressed); transform: scale(0.985); }
+    .btn:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+    .btn:disabled { color: var(--text-disabled); background: var(--layer-alt); border-color: var(--stroke); cursor: default; }
+    .btn.accent {
+      background: var(--accent-fill);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+    .btn.accent:hover { background: color-mix(in srgb, var(--accent-fill) 92%, white); }
+    .btn.accent:active { background: color-mix(in srgb, var(--accent-fill) 92%, black); transform: scale(0.985); }
+
+    .row { display: flex; align-items: center; gap: 6px; }
+    .row .textbox { flex: 1; min-width: 0; }
+    .row .btn { flex: 0 0 auto; }
+
+    /* Fluent checkbox row */
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 2px 0;
+      color: var(--text-primary);
+      font-size: 12.5px;
+      line-height: 1.4;
+      cursor: pointer;
+      user-select: none;
+    }
+    .check-row input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      margin: 1px 0 0;
+      flex: 0 0 auto;
+      accent-color: var(--accent-fill);
+      cursor: pointer;
+    }
+    .check-row .check-hint {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .flyout-foot {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 12px 2px 0;
+      padding: 10px 2px 8px;
+      background: var(--flyout-bg);
+      border-top: 1px solid var(--stroke);
+    }
+    .status-line {
+      min-height: 16px;
+      margin: 8px 4px 0;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .status-line.error { color: var(--critical); }
+
+    /* WinUI thin scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); background-clip: content-box; }
+    html.theme-light ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.3); background-clip: content-box; }
+
+    /* =========================================================
+       Compatibility
+       ========================================================= */
+    /* Windows High Contrast / forced colors */
+    @media (forced-colors: active) {
+      #notch, #transcript, .flyout, .group {
+        background: Canvas;
+        border: 1px solid CanvasText;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+      .status, .brand, .flyout-title, .label, .group-title, .group-hint,
+      .textbox, .combo, .btn, .status-line { color: CanvasText; forced-color-adjust: none; }
+      .textbox, .combo, .btn { background: Field; border: 1px solid CanvasText; }
+      .btn.accent { background: Highlight; color: HighlightText; }
+      .icon-btn { color: ButtonText; background: ButtonFace; border-color: ButtonText; }
+      .icon-btn.close:hover { background: Highlight; color: HighlightText; }
+      .status-dot { background: Highlight; box-shadow: none; border: 1px solid CanvasText; }
+      .logo { background: Highlight; color: HighlightText; box-shadow: none; animation: none; }
+      ::-webkit-scrollbar-thumb { background: CanvasText; }
+    }
+
+    /* Reduced motion */
+    /* Reduced motion (Windows "Animation effects" off): we still fade things in
+       softly instead of snapping, but drop movement, scale and blur. Turning on
+       "Animazioni complete" in Settings re-enables the full choreography. */
+    @media (prefers-reduced-motion: reduce) {
+      html:not(.force-motion) *,
+      html:not(.force-motion) *::before,
+      html:not(.force-motion) *::after {
+        animation-duration: 200ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 200ms !important;
+      }
+      html:not(.force-motion) #notch,
+      html:not(.force-motion) .flyout,
+      html:not(.force-motion) .brand,
+      html:not(.force-motion) .status,
+      html:not(.force-motion) .controls,
+      html:not(.force-motion) .flyout-body > .group,
+      html:not(.force-motion) .flyout .flyout-foot {
+        animation-name: calmIn !important;
+        filter: none !important;
+        transform: none !important;
+      }
+      html:not(.force-motion) #notch.notch-out,
+      html:not(.force-motion) .flyout.closing {
+        animation-name: calmOut !important;
+      }
+    }
+    @keyframes calmIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes calmOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* Higher contrast preference */
+    @media (prefers-contrast: more) {
+      :root { --stroke: rgba(255, 255, 255, 0.35); --stroke-strong: rgba(255, 255, 255, 0.55); }
+    }
+  </style>
+</head>
+<body>
+  <div id="notch" role="toolbar" aria-label="FckClicky notch">
+    <div class="brand">
+      <div class="logo glyph" aria-hidden="true">&#xE8BD;</div>
+      <span>FckClicky</span>
+    </div>
+
+    <div class="status" aria-live="polite">
+      <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+      <span id="statusText">Pronto • premi Ctrl+Alt per parlare</span>
+    </div>
+
+    <div class="controls">
+      <button class="icon-btn" id="settingsBtn" title="Impostazioni" aria-label="Apri impostazioni">
+        <span class="glyph" aria-hidden="true">&#xE713;</span>
+      </button>
+      <button class="icon-btn" id="collapseBtn" title="Nascondi nella tray" aria-label="Nascondi nella tray">
+        <span class="glyph" aria-hidden="true">&#xE921;</span>
+      </button>
+      <button class="icon-btn close" id="quitBtn" title="Chiudi (resta nella tray)" aria-label="Chiudi e resta nella tray">
+        <span class="glyph" aria-hidden="true">&#xE8BB;</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="settingsPanel" class="flyout" role="dialog" aria-label="Impostazioni FckClicky" style="display:none;">
+    <div class="flyout-head">
+      <div class="flyout-title">
+        <span class="glyph" aria-hidden="true">&#xE713;</span>
+        Impostazioni
+      </div>
+      <button id="closeSettingsBtn" class="icon-btn close" title="Chiudi" aria-label="Chiudi impostazioni">
+        <span class="glyph" aria-hidden="true">&#xE8BB;</span>
+      </button>
+    </div>
+
+    <div class="flyout-body">
+      <section class="group">
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE774;</span> API remota</h2>
+        <label class="field">
+          <span class="label">Base URL</span>
+          <input id="cfgBaseUrl" class="textbox" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
+        </label>
+        <label class="field">
+          <span class="label">API Key</span>
+          <input id="cfgApiKey" class="textbox" type="password" placeholder="sk-…" />
+        </label>
+      </section>
+
+      <section class="group">
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE720;</span> Riconoscimento vocale</h2>
+        <label class="field">
+          <span class="label">Provider STT</span>
+          <select id="cfgSttProvider" class="combo">
+            <option value="remote">Remote API (/audio/transcriptions)</option>
+            <option value="local_whisper">Locale — faster-whisper</option>
+          </select>
+        </label>
+
+        <div id="localWhisperFields" style="display:none;">
+          <label class="field">
+            <span class="label">Percorso python.exe</span>
+            <div class="row">
+              <input id="cfgWhisperBin" class="textbox" spellcheck="false" placeholder="C:\Users\tu\AppData\Local\Programs\Python\Python312\python.exe" />
+              <button id="pickWhisperBinBtn" class="btn" type="button" title="Sfoglia" aria-label="Sfoglia python.exe">Sfoglia…</button>
+            </div>
+          </label>
+          <label class="field">
+            <span class="label">Modello faster-whisper</span>
+            <input id="cfgWhisperModel" class="textbox" spellcheck="false" placeholder="base (tiny / base / small / medium)" />
+          </label>
+          <label class="field">
+            <span class="label">Argomenti (opzionale, usa {model} {input} {output})</span>
+            <input id="cfgWhisperArgs" class="textbox" spellcheck="false" placeholder='"C:\…\transcribe.py" {input} {model}' />
+          </label>
+          <div class="group-hint">Lascia vuoto per usare lo script generato dal setup. L’audio viene passato come file temporaneo.</div>
+        </div>
+      </section>
+
+      <section class="group">
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE790;</span> Aspetto</h2>
+        <label class="check-row">
+          <input id="cfgMotionFull" type="checkbox" />
+          <span>
+            <span>Animazioni complete</span>
+            <span class="check-hint">Movimento e transizioni fluide stile Apple. Se Windows ha le animazioni disattivate, l'interfaccia resta in modalità calma.</span>
+          </span>
+        </label>
+      </section>
+
+      <section class="group">
+        <h2 class="group-title"><span class="glyph" aria-hidden="true">&#xE8A5;</span> Modelli</h2>
+        <div class="grid-2">
+          <label class="field">
+            <span class="label">Chat</span>
+            <select id="cfgChatModel" class="combo"><option value="auto">auto</option></select>
+          </label>
+          <label class="field">
+            <span class="label">Vision</span>
+            <select id="cfgVisionModel" class="combo"><option value="auto">auto</option></select>
+          </label>
+          <label class="field">
+            <span class="label">STT (API)</span>
+            <select id="cfgSttModel" class="combo"><option value="auto">auto</option></select>
+          </label>
+          <label class="field">
+            <span class="label">TTS (audio)</span>
+            <select id="cfgTtsModel" class="combo"><option value="auto">auto</option></select>
+          </label>
+        </div>
+      </section>
+
+      <div class="flyout-foot">
+        <button id="openSetupBtn" class="btn" type="button" title="Apri la configurazione iniziale">
+          <span class="glyph" aria-hidden="true">&#xE896;</span> Setup…
+        </button>
+        <button id="saveSettingsBtn" class="btn accent" type="button">
+          <span class="glyph" aria-hidden="true">&#xE73E;</span> Salva
+        </button>
+      </div>
+      <div id="settingsMsg" class="status-line" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div id="transcript" role="status" aria-live="polite"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

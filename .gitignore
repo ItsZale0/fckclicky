@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+
+# Logs and local runtime artifacts
+*.log
+electron_err.log
+electron_output.log
+electron_stderr.log
+electron_stdout.log
+runtime_evidence*.png
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env/secrets (runtime config is stored outside repo in %LOCALAPPDATA%\FckClicky)
+.env
+.env.*
+*.local.json
+
+# Temp
+*.tmp
+*.bak

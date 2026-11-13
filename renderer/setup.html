@@ -1,0 +1,475 @@
+﻿<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>FckClicky Setup</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+      --accent: #60cdff;
+      --accent-fill: #60cdff;
+      --accent-text: #003a5c;
+      --accent-subtle: rgba(96, 205, 255, 0.14);
+
+      --layer: rgba(255, 255, 255, 0.0605);
+      --layer-alt: rgba(255, 255, 255, 0.0419);
+      --layer-hover: rgba(255, 255, 255, 0.0837);
+      --layer-pressed: rgba(255, 255, 255, 0.0326);
+      --card-bg: rgba(255, 255, 255, 0.0326);
+      --stroke: rgba(255, 255, 255, 0.0698);
+      --stroke-strong: rgba(255, 255, 255, 0.12);
+      --divider: rgba(255, 255, 255, 0.08);
+
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.786);
+      --text-tertiary: rgba(255, 255, 255, 0.544);
+      --text-disabled: rgba(255, 255, 255, 0.363);
+      --critical: #ff99a4;
+      --success: #6ccb5f;
+
+      --radius-control: 4px;
+      --radius-card: 8px;
+      --ease-standard: cubic-bezier(0.1, 0.9, 0.2, 1);
+      --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --font-icon: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+      --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+      --page-bg: #202020;
+
+      /* dropdown chevron, recoloured per theme */
+      --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ffffff' stroke-opacity='.7' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --layer: rgba(255, 255, 255, 0.7);
+        --layer-alt: rgba(255, 255, 255, 0.5);
+        --layer-hover: rgba(249, 249, 249, 0.6);
+        --layer-pressed: rgba(249, 249, 249, 0.3);
+        --card-bg: rgba(255, 255, 255, 0.55);
+        --stroke: rgba(0, 0, 0, 0.0578);
+        --stroke-strong: rgba(0, 0, 0, 0.1);
+        --divider: rgba(0, 0, 0, 0.06);
+        --text-primary: #1a1a1a;
+        --text-secondary: rgba(0, 0, 0, 0.606);
+        --text-tertiary: rgba(0, 0, 0, 0.446);
+        --text-disabled: rgba(0, 0, 0, 0.363);
+        --critical: #c42b1c;
+        --success: #0f7b0f;
+        --page-bg: #f3f3f3;
+        --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000000' stroke-opacity='.62' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+    }
+    html.theme-light {
+      --layer: rgba(255, 255, 255, 0.7);
+      --layer-alt: rgba(255, 255, 255, 0.5);
+      --layer-hover: rgba(249, 249, 249, 0.6);
+      --layer-pressed: rgba(249, 249, 249, 0.3);
+      --card-bg: rgba(255, 255, 255, 0.55);
+      --stroke: rgba(0, 0, 0, 0.0578);
+      --stroke-strong: rgba(0, 0, 0, 0.1);
+      --divider: rgba(0, 0, 0, 0.06);
+      --text-primary: #1a1a1a;
+      --text-secondary: rgba(0, 0, 0, 0.606);
+      --text-tertiary: rgba(0, 0, 0, 0.446);
+      --text-disabled: rgba(0, 0, 0, 0.363);
+      --critical: #c42b1c;
+      --success: #0f7b0f;
+      --page-bg: #f3f3f3;
+      --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000000' stroke-opacity='.62' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+
+    * { box-sizing: border-box; }
+
+    /* Windows 11 Mica: native backdrop shows through the page */
+    html.material-mica { --page-bg: rgba(32, 32, 32, 0.88); }
+    html.material-mica.theme-light { --page-bg: rgba(243, 243, 243, 0.9); }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      padding: 0 0 16px;
+      overflow-y: auto;
+      background:
+        radial-gradient(1100px 420px at 12% -18%, var(--accent-subtle), transparent 62%),
+        var(--page-bg);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .glyph {
+      font-family: var(--font-icon);
+      font-style: normal; font-weight: normal; line-height: 1;
+      display: inline-block; speak: never;
+    }
+
+    .page { max-width: 620px; margin: 0 auto; padding: 16px 20px 4px; }
+
+    .app-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .app-icon {
+      width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-family: var(--font-icon);
+      font-size: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 21px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+    .sub {
+      margin: 2px 0 0;
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .section {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-card);
+      background: var(--layer-alt);
+      animation: sectionIn 620ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+    .section:nth-of-type(2) { animation-delay: 90ms; }
+    .section:nth-of-type(3) { animation-delay: 160ms; }
+    @keyframes sectionIn {
+      0%   { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(5px); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+    .app-head { animation: sectionIn 560ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+    @keyframes headIn {
+      0%   { opacity: 0; transform: translateY(-8px); filter: blur(4px); }
+      100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+    .app-head { animation-name: headIn; }
+    .actions { animation: sectionIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 220ms backwards; }
+    .section h2 {
+      display: flex; align-items: center; gap: 7px;
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .section h2 .glyph { color: var(--accent); font-size: 13px; }
+
+    .field { display: block; margin-bottom: 10px; }
+    .field:last-child { margin-bottom: 0; }
+    .field > .label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 12.5px;
+      background: var(--layer);
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-control);
+      outline: none;
+      transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    input::placeholder { color: var(--text-tertiary); }
+    input:hover, select:hover { background: var(--layer-hover); }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: inset 0 -2px 0 var(--accent); /* WinUI underline without moving text */
+    }
+    select {
+      appearance: none; -webkit-appearance: none;
+      padding-right: 30px;
+      cursor: pointer;
+      background-image: var(--chevron);
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    select option { background: var(--page-bg); color: var(--text-primary); }
+    @media (prefers-color-scheme: light) {
+      select option { background: var(--page-bg); color: var(--text-primary); }
+    }
+
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row input { flex: 1; min-width: 0; }
+    .row .btn { flex: 0 0 auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 32px; padding: 0 14px;
+      border: 1px solid var(--stroke-strong);
+      border-radius: var(--radius-control);
+      background: var(--layer);
+      color: var(--text-primary);
+      font-family: var(--font-ui); font-size: 13px; font-weight: 400;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+    }
+    .btn:hover { background: var(--layer-hover); }
+    .btn:active { background: var(--layer-pressed); transform: scale(0.985); }
+    .btn:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+    .btn:disabled { color: var(--text-disabled); background: var(--layer-alt); cursor: default; }
+    .btn.accent {
+      background: var(--accent-fill);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+    .btn.accent:hover { background: color-mix(in srgb, var(--accent-fill) 92%, white); }
+    .btn.accent:active { background: color-mix(in srgb, var(--accent-fill) 92%, black); }
+
+    .callout {
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(96, 205, 255, 0.28);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-card);
+      background: var(--accent-subtle);
+    }
+    .callout .title {
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: 6px;
+      font-size: 13px; font-weight: 600;
+    }
+    .callout .title .glyph { color: var(--accent); }
+
+    .muted { color: var(--text-tertiary); font-size: 12px; line-height: 1.55; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--layer);
+      border: 1px solid var(--stroke);
+    }
+    pre {
+      margin: 8px 0 0;
+      padding: 10px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-card);
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--success);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 150px;
+      overflow: auto;
+    }
+    html.theme-light pre { background: rgba(255, 255, 255, 0.65); color: #0f7b0f; }
+
+    details { margin-top: 12px; }
+    summary {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 0;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary .glyph { transition: transform 0.15s var(--ease-standard); }
+    details[open] summary .glyph { transform: rotate(90deg); }
+    details .body { padding: 4px 0 0 2px; }
+    details[open] .body { animation: bodyIn 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+    @keyframes bodyIn {
+      0%   { opacity: 0; transform: translateY(-6px); filter: blur(3px); }
+      100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+    ol, ul { margin: 6px 0 10px 20px; padding: 0; }
+    li { margin-bottom: 4px; }
+
+    .actions {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+      padding: 12px 0 4px;
+      background: linear-gradient(180deg, transparent, var(--page-bg) 45%);
+    }
+
+    #msg {
+      margin-top: 10px;
+      min-height: 18px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .hidden { display: none !important; }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      border: 3px solid transparent;
+      background-clip: content-box;
+    }
+    html.theme-light ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.3); background-clip: content-box; }
+
+    @media (forced-colors: active) {
+      body { background: Canvas; }
+      .section, .callout, input, select, .btn, pre, code { background: Canvas; border: 1px solid CanvasText; }
+      .btn.accent { background: Highlight; color: HighlightText; }
+      * { forced-color-adjust: none; color: CanvasText; }
+      .btn.accent { color: HighlightText; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 200ms !important;
+        animation-delay: 0ms !important;
+        transition-duration: 200ms !important;
+      }
+      .section, .app-head, .actions, details[open] .body {
+        animation-name: calmIn !important;
+        filter: none !important;
+        transform: none !important;
+      }
+    }
+    @keyframes calmIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="app-head">
+      <div class="app-icon glyph" aria-hidden="true">&#xE8BD;</div>
+      <div>
+        <h1>Setup di FckClicky</h1>
+        <p class="sub">Configura il riconoscimento vocale. Potrai modificare tutto dalle impostazioni, anche dopo.</p>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2><span class="glyph" aria-hidden="true">&#xE720;</span> Riconoscimento vocale</h2>
+      <label class="field">Provider
+        <select id="sttProvider">
+          <option value="remote">Remote API — OpenAI-compatible (/audio/transcriptions)</option>
+          <option value="local_whisper">Locale — faster-whisper (SYSTRAN)</option>
+        </select>
+      </label>
+
+      <div id="remoteFields">
+        <label class="field">Base URL API
+          <input id="baseUrl" spellcheck="false" placeholder="http://127.0.0.1:31415/v1" />
+        </label>
+        <label class="field">API Key (opzionale)
+          <input id="apiKey" type="password" placeholder="sk-…" />
+        </label>
+        <label class="field">Modello STT remoto
+          <input id="sttModel" spellcheck="false" placeholder="auto" />
+        </label>
+      </div>
+
+      <div id="localFields" class="hidden">
+        <div class="callout">
+          <div class="title"><span class="glyph" aria-hidden="true">&#xE896;</span> Installazione automatica (consigliata)</div>
+          <div class="muted" style="margin-bottom:10px;">
+            Installa <strong>faster-whisper</strong> via pip, crea lo script di trascrizione in
+            <code>%LOCALAPPDATA%\FckClicky\whisper\transcribe.py</code> e pre-carica il modello.
+            Serve <strong>Python 3.10+</strong> installato con “Add python.exe to PATH”.
+          </div>
+          <label class="field">Modello faster-whisper
+            <select id="autoModel">
+              <option value="tiny">tiny — velocissimo (~75 MB)</option>
+              <option value="base" selected>base — consigliato (~145 MB)</option>
+              <option value="small">small — più preciso (~465 MB)</option>
+              <option value="medium">medium — massimo (~1.5 GB, lento su CPU)</option>
+            </select>
+          </label>
+          <div style="margin-top:10px;">
+            <button id="autoSetup" class="btn accent" type="button">
+              <span class="glyph" aria-hidden="true">&#xE896;</span> Installa faster-whisper automaticamente
+            </button>
+          </div>
+          <pre id="autoLog" class="hidden"></pre>
+        </div>
+
+        <label class="field">Percorso <code>python.exe</code>
+          <div class="row">
+            <input id="whisperBin" spellcheck="false" placeholder="C:\Users\tu\AppData\Local\Programs\Python\Python312\python.exe" />
+            <button id="pickBin" class="btn" type="button">Sfoglia…</button>
+          </div>
+        </label>
+        <label class="field">Modello faster-whisper (nome)
+          <input id="whisperModel" spellcheck="false" placeholder="base" />
+        </label>
+        <label class="field">Argomenti (opzionale, usa {model} {input} {output})
+          <input id="whisperArgs" spellcheck="false" placeholder='"C:\…\transcribe.py" {input} {model}' />
+        </label>
+        <div class="muted">Clicky salva l’audio in un file temporaneo, lo passa a faster-whisper e legge la trascrizione da stdout.</div>
+        <div style="margin-top:10px;">
+          <button id="checkWhisper" class="btn" type="button">
+            <span class="glyph" aria-hidden="true">&#xE73E;</span> Verifica configurazione
+          </button>
+        </div>
+
+        <details>
+          <summary><span class="glyph" aria-hidden="true">&#xE76C;</span> Guida manuale (installare faster-whisper a mano)</summary>
+          <div class="body muted">
+            <strong>faster-whisper (SYSTRAN)</strong> — <a href="https://github.com/SYSTRAN/faster-whisper">github.com/SYSTRAN/faster-whisper</a>
+            <ol>
+              <li>Installa <strong>Python 3.10+</strong> da <a href="https://www.python.org/downloads/">python.org</a> — spunta <code>Add python.exe to PATH</code></li>
+              <li>Nel terminale: <code>pip install -U faster-whisper</code><br>
+                (il modello si scarica automaticamente al primo utilizzo, nella cache di Python/Hugging Face)</li>
+              <li>Incolla il percorso di <code>python.exe</code> nel campo qui sopra (pulsante “Sfoglia”). Esempio: <code>C:\Users\&lt;tu&gt;\AppData\Local\Programs\Python\Python312\python.exe</code></li>
+              <li>Scegli il modello: <code>tiny</code>, <code>base</code> (consigliato), <code>small</code>, <code>medium</code>…</li>
+              <li>Argomenti: lascia vuoto (Clicky usa lo script generato) oppure inserisci i tuoi, es. <code>"C:\tools\transcribe.py" {input} {model}</code></li>
+            </ol>
+            <strong>Comando di test (opzionale)</strong>
+            <pre>python -c "from faster_whisper import WhisperModel; m=WhisperModel('base', device='cpu', compute_type='int8'); s,info=m.transcribe('audio.wav', vad_filter=True); print(' '.join(x.text for x in s))"</pre>
+            <strong>Suggerimenti</strong>
+            <ul>
+              <li><code>device='cpu', compute_type='int8'</code> è il miglior compromesso su CPU</li>
+              <li>GPU: <code>device='cuda', compute_type='float16'</code> con CUDA + <code>pip install faster-whisper[cuda]</code></li>
+              <li>Italiano: <code>base</code> è già buono, <code>small</code> è più preciso</li>
+              <li>Con più versioni di Python, seleziona il <code>python.exe</code> corretto con “Sfoglia”</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2><span class="glyph" aria-hidden="true">&#xE946;</span> Come si usa</h2>
+      <div class="muted">
+        • Tieni premuto <strong>Ctrl+Alt</strong> e parla; rilascia per inviare.<br>
+        • Con <strong>Ctrl+Alt</strong> attivo, <strong>cerchia un’area</strong> dello schermo per selezionarla.<br>
+        • Chat, vision e TTS possono restare su API remote anche scegliendo faster-whisper locale per lo STT.
+      </div>
+    </section>
+
+    <div id="msg" role="status" aria-live="polite"></div>
+
+    <div class="actions">
+      <button id="skip" class="btn" type="button">Salta (usa i default)</button>
+      <button id="save" class="btn accent" type="button">
+        <span class="glyph" aria-hidden="true">&#xE73E;</span> Salva e continua
+      </button>
+    </div>
+  </div>
+  <script src="./setup.js"></script>
+</body>
+</html>

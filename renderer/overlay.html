@@ -1,0 +1,528 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    :root {
+      --font-ui: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+      --hint-bg: #202020;
+      --hint-border: rgba(255, 255, 255, 0.10);
+      --hint-text: #ffffff;
+      --accent: #60cdff;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --hint-bg: #f9f9f9;
+        --hint-border: rgba(0, 0, 0, 0.08);
+        --hint-text: #1a1a1a;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    canvas { 
+      position: fixed; inset: 0; 
+      width: 100%; height: 100%; 
+      pointer-events: none;
+    }
+    #u { z-index: 5; }
+    #r { z-index: 10; }
+    body.select-mode #u { pointer-events: auto; cursor: crosshair; }
+    #hint {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 8px;
+      max-width: min(560px, calc(100vw - 32px));
+      padding: 7px 13px 7px 11px; border-radius: 8px;
+      background: var(--hint-bg);
+      color: var(--hint-text);
+      border: 1px solid var(--hint-border);
+      font: 600 12.5px var(--font-ui);
+      letter-spacing: 0.05px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+      z-index: 20; pointer-events: none;
+      will-change: opacity, transform;
+    }
+    #hint::before {
+      content: '';
+      width: 6px; height: 6px; flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 2px rgba(96, 205, 255, 0.18);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #hint { transition-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">Puntatore attivo • cerchia un'area per selezionarla • tieni Ctrl+Alt per parlare</div>
+  <canvas id="c"></canvas>
+  <canvas id="u"></canvas>
+  <canvas id="r"></canvas>
+  
+  <script>
+    const rCanvas = document.getElementById('r');
+    const ctx = rCanvas.getContext('2d');
+    const uCanvas = document.getElementById('u');
+    const uctx = uCanvas.getContext('2d');
+    const hint = document.getElementById('hint');
+
+    let target = null;       // latest cursor from main
+    let head = null;         // smoothed cursor
+    let trail = [];          // [{x,y,t}]
+    let lastMoveAt = 0;
+    let visibleAlpha = 0;
+    let running = false;
+    let overlayActive = false;
+    let overlayFade = 0; // 0..1 master fade for seamless show/hide
+
+    // Selection state (automatic gesture-based)
+    let selections = []; // {x,y,w,h}
+    let lastSelection = null;
+    let selectionExpireTimer = null;
+    let selectionOpacity = 1;
+    let selectionAnimStart = 0;
+
+    // Gesture selection (circle around area)
+    let gesturePoints = []; // {x,y,t}
+    let lastGestureTrigger = 0;
+
+    const MAX_TRAIL = 70;
+    const IDLE_MS = 650;
+    const FADE_MS = 550;
+
+    // Satisfying UI sounds in overlay
+    let audioCtx = null;
+    function getAudioCtx() {
+      try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{}); } catch {}
+      return audioCtx;
+    }
+    function tone(freq, slideTo, dur, gain, type='sine', delay=0) {
+      const c = getAudioCtx(); if (!c) return;
+      const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+    }
+    function clickSound() { tone(1500, 650, 0.04, 0.04, 'triangle', 0); }
+    function selectionSound() { clickSound(); tone(700, 1050, 0.09, 0.022, 'triangle', 0.03); tone(1050, 1400, 0.14, 0.018, 'sine', 0.08); }
+
+    function resize() {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      [rCanvas, uCanvas].forEach(c => {
+        c.width = Math.floor(window.innerWidth * dpr);
+        c.height = Math.floor(window.innerHeight * dpr);
+        c.style.width = window.innerWidth + 'px';
+        c.style.height = window.innerHeight + 'px';
+      });
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      uctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawSelections();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    if (window.fckclicky?.onCursor) {
+      window.fckclicky.onCursor((pos) => {
+        if (!pos) return;
+        const x = pos.x, y = pos.y;
+        if (!isFinite(x) || !isFinite(y)) return;
+        target = { x, y };
+        if (!head) head = { x, y };
+        const now = performance.now();
+        lastMoveAt = now;
+        visibleAlpha = Math.min(1, visibleAlpha + 0.35);
+        if (hint) { hint.style.opacity = '1'; hint.style.transform = 'translateX(-50%) translateY(0px)'; }
+        detectCircleGesture(x, y, now);
+        if (!running) { running = true; requestAnimationFrame(animate); }
+      });
+    }
+
+    function detectCircleGesture(x, y, now) {
+      // Track recent motion and detect circling around an area:
+      // trigger when user draws ~2 circles or circles around same area for a while.
+      const last = gesturePoints[gesturePoints.length - 1];
+      if (!last || Math.hypot(x - last.x, y - last.y) > 3) {
+        gesturePoints.push({ x, y, t: now });
+      }
+      // keep last ~2.5s
+      while (gesturePoints.length > 2 && now - gesturePoints[0].t > 2500) gesturePoints.shift();
+      if (gesturePoints.length < 20) return;
+      if (now - lastGestureTrigger < 1500) return; // cooldown
+
+      // bounding box / center
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of gesturePoints) {
+        if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+      }
+      const w = maxX - minX, h = maxY - minY;
+      if (w < 40 || h < 40 || w > 700 || h > 700) return;
+      const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+
+      // accumulate signed angle around centroid
+      let totalAngle = 0;
+      let valid = 0;
+      for (let i = 1; i < gesturePoints.length; i++) {
+        const a = gesturePoints[i - 1], b = gesturePoints[i];
+        const a1 = Math.atan2(a.y - cy, a.x - cx);
+        const a2 = Math.atan2(b.y - cy, b.x - cx);
+        let d = a2 - a1;
+        if (d > Math.PI) d -= Math.PI * 2;
+        if (d < -Math.PI) d += Math.PI * 2;
+        // ignore points too close to center (unstable angle)
+        const ra = Math.hypot(a.x - cx, a.y - cy);
+        const rb = Math.hypot(b.x - cx, b.y - cy);
+        if (ra > 15 && rb > 15) { totalAngle += d; valid++; }
+      }
+      if (valid < 15) return;
+
+      const turns = Math.abs(totalAngle) / (Math.PI * 2);
+      const duration = now - gesturePoints[0].t;
+      // 2 circles, or ~1+ circle sustained around area for some time
+      if (turns >= 1.8 || (turns >= 1.0 && duration >= 1200)) {
+        lastGestureTrigger = now;
+        gesturePoints = []; // reset after detection
+        const pad = 12;
+        const rect = { x: Math.max(0, minX - pad), y: Math.max(0, minY - pad), w: w + pad * 2, h: h + pad * 2 };
+        setSelection(rect, { ttl: 7000 }); // short-lived, intelligent selection
+        if (hint) {
+          hint.textContent = 'Area selezionata per Clicky';
+          hint.style.opacity = '1';
+        }
+      }
+    }
+
+    if (window.fckclicky?.onOverlayMode) {
+      window.fckclicky.onOverlayMode((payload) => {
+        const mode = payload && payload.mode;
+        if (mode === 'pointer') {
+          overlayActive = true;
+          if (hint) {
+            hint.textContent = "Puntatore attivo • cerchia un'area per selezionarla • tieni Ctrl+Alt per parlare";
+            hint.style.opacity = '1';
+            hint.style.transform = 'translateX(-50%) translateY(0px)';
+          }
+          if (!running) { running = true; requestAnimationFrame(animate); }
+        } else if (mode === 'off') {
+          overlayActive = false;
+        }
+      });
+    }
+
+    if (window.fckclicky?.onOverlayDraw) {
+      window.fckclicky.onOverlayDraw((payload) => {
+        if (payload && payload.clearSelections) { setSelection(null); }
+        if (payload && payload.consumeSelection) { setSelection(null); }
+        if (payload && payload.selection) { setSelection(payload.selection, { ttl: 6500, fromRefine: true }); }
+      });
+    }
+
+    function setSelection(rect, opts = {}) {
+      if (selectionExpireTimer) { clearTimeout(selectionExpireTimer); selectionExpireTimer = null; }
+      selections = rect ? [rect] : [];
+      lastSelection = rect || null;
+      selectionOpacity = 1;
+      selectionAnimStart = performance.now();
+      if (rect) {
+        try { selectionSound(); } catch {}
+        if (!running) { running = true; requestAnimationFrame(animate); }
+      }
+      drawSelections();
+      if (rect) {
+        if (!opts.fromRefine) { try { window.fckclicky?.reportSelection?.(rect); } catch {} }
+        const ttl = opts.ttl || 6500;
+        selectionExpireTimer = setTimeout(() => fadeOutSelection(), ttl);
+      } else {
+        if (!opts.fromRefine) { try { window.fckclicky?.reportSelection?.(null); } catch {} }
+      }
+    }
+
+    function fadeOutSelection() {
+      if (!selections.length) return;
+      const start = performance.now();
+      const dur = 420;
+      const step = (now) => {
+        const k = Math.min(1, (now - start) / dur);
+        selectionOpacity = 1 - k;
+        drawSelections(now);
+        if (k < 1 && selections.length) requestAnimationFrame(step);
+        else { selections = []; lastSelection = null; selectionOpacity = 1; drawSelections(now); try { window.fckclicky?.reportSelection?.(null); } catch {} }
+      };
+      requestAnimationFrame(step);
+    }
+
+    function drawSelections(nowPerf) {
+      const w = window.innerWidth, h = window.innerHeight;
+      uctx.clearRect(0, 0, w, h);
+      if (!selections.length) return;
+      const now = nowPerf || performance.now();
+      const appear = Math.min(1, (now - selectionAnimStart) / 260);
+      const easeOut = 1 - Math.pow(1 - appear, 3);
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.007);
+      const pulse2 = 0.5 + 0.5 * Math.sin(now * 0.004 + 1.2);
+
+      selections.forEach((r) => {
+        const scale = 0.94 + 0.06 * easeOut;
+        const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+        const rw = r.w * scale, rh = r.h * scale;
+        const rx = cx - rw / 2, ry = cy - rh / 2;
+
+        uctx.save();
+        uctx.globalAlpha = selectionOpacity * (0.7 + 0.3 * easeOut);
+
+        // animated outer glow ring
+        uctx.strokeStyle = `rgba(255, 220, 100, ${0.12 + pulse * 0.08})`;
+        uctx.lineWidth = 6;
+        uctx.shadowColor = 'rgba(255, 210, 80, 0.35)';
+        uctx.shadowBlur = 18;
+        uctx.beginPath();
+        uctx.roundRect(rx - 2, ry - 2, rw + 4, rh + 4, 14);
+        uctx.stroke();
+
+        // soft fill (no full-screen dim)
+        uctx.shadowBlur = 10;
+        uctx.fillStyle = `rgba(255, 215, 60, ${0.045 + pulse * 0.02})`;
+        uctx.strokeStyle = `rgba(255, 230, 140, ${0.88 + pulse * 0.1})`;
+        uctx.lineWidth = 2.2;
+        uctx.beginPath();
+        uctx.roundRect(rx, ry, rw, rh, 12);
+        uctx.fill();
+        uctx.stroke();
+
+        // animated dashed inner border
+        uctx.shadowBlur = 0;
+        uctx.setLineDash([8, 7]);
+        uctx.lineDashOffset = -(now * 0.03);
+        uctx.strokeStyle = `rgba(255, 245, 200, ${0.35 + pulse2 * 0.25})`;
+        uctx.lineWidth = 1.5;
+        uctx.beginPath();
+        uctx.roundRect(rx + 5, ry + 5, Math.max(0, rw - 10), Math.max(0, rh - 10), 9);
+        uctx.stroke();
+        uctx.setLineDash([]);
+
+        // scanning highlight line
+        if (appear > 0.7) {
+          const scanT = ((now * 0.00035) % 1);
+          const sy = ry + 6 + (rh - 12) * scanT;
+          const grad = uctx.createLinearGradient(rx, sy, rx + rw, sy);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.5, `rgba(255,245,210,${0.12 + pulse * 0.08})`);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          uctx.fillStyle = grad;
+          uctx.fillRect(rx + 6, sy - 1, Math.max(0, rw - 12), 2);
+        }
+
+        // animated corner accents
+        uctx.strokeStyle = `rgba(255,250,220,${0.85 + pulse * 0.12})`;
+        uctx.lineWidth = 2.5;
+        uctx.lineCap = 'round';
+        const c = 13 + pulse * 3;
+        const corners = [[rx,ry,1,1],[rx+rw,ry,-1,1],[rx,ry+rh,1,-1],[rx+rw,ry+rh,-1,-1]];
+        corners.forEach(([x,y,sx,sy]) => {
+          uctx.beginPath();
+          uctx.moveTo(x, y + sy*c);
+          uctx.lineTo(x, y);
+          uctx.lineTo(x + sx*c, y);
+          uctx.stroke();
+        });
+
+        // center crosshair sparkle on appear
+        if (appear < 1) {
+          uctx.globalAlpha = selectionOpacity * (1 - appear) * 0.5;
+          uctx.strokeStyle = 'rgba(255,245,210,0.9)';
+          uctx.lineWidth = 1.5;
+          const s = 18 * (1 - appear) + 6;
+          uctx.beginPath();
+          uctx.moveTo(cx - s, cy); uctx.lineTo(cx + s, cy);
+          uctx.moveTo(cx, cy - s); uctx.lineTo(cx, cy + s);
+          uctx.stroke();
+        }
+
+        uctx.restore();
+      });
+    }
+
+    // Selezione automatica tramite gesto (cerchi) — nessuna modalità manuale.
+
+    function addTrailPoint(x, y, now) {
+      const last = trail[0];
+      if (!last || Math.hypot(x - last.x, y - last.y) > 2.5) {
+        trail.unshift({ x, y, t: now });
+        if (trail.length > MAX_TRAIL) trail.length = MAX_TRAIL;
+      } else {
+        last.t = now;
+      }
+    }
+
+    function drawRibbon(now) {
+      const w = window.innerWidth, h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+      const a = visibleAlpha * overlayFade;
+      if (!head || trail.length < 2 || a <= 0.01) return;
+
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // build smooth path points
+      const pts = trail.slice(0, 45);
+      if (pts.length < 2) { ctx.restore(); return; }
+
+      // outer glow/shadow ribbon
+      for (let pass = 0; pass < 3; pass++) {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const p = pts[i], n = pts[i + 1];
+          const mx = (p.x + n.x) / 2, my = (p.y + n.y) / 2;
+          ctx.quadraticCurveTo(p.x, p.y, mx, my);
+        }
+        const last = pts[pts.length - 1];
+        ctx.lineTo(last.x, last.y);
+
+        if (pass === 0) {
+          ctx.strokeStyle = 'rgba(255, 170, 0, 0.18)';
+          ctx.lineWidth = 18;
+          ctx.shadowColor = 'rgba(255, 200, 60, 0.35)';
+          ctx.shadowBlur = 24;
+        } else if (pass === 1) {
+          const grad = ctx.createLinearGradient(pts[0].x, pts[0].y, last.x, last.y);
+          grad.addColorStop(0, 'rgba(255, 230, 120, 0.95)');
+          grad.addColorStop(0.5, 'rgba(255, 200, 40, 0.75)');
+          grad.addColorStop(1, 'rgba(255, 170, 0, 0.15)');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 7;
+          ctx.shadowColor = 'rgba(255, 210, 80, 0.55)';
+          ctx.shadowBlur = 14;
+        } else {
+          const grad2 = ctx.createLinearGradient(pts[0].x, pts[0].y, last.x, last.y);
+          grad2.addColorStop(0, 'rgba(255, 255, 220, 0.9)');
+          grad2.addColorStop(1, 'rgba(255, 230, 140, 0.0)');
+          ctx.strokeStyle = grad2;
+          ctx.lineWidth = 2.2;
+          ctx.shadowBlur = 0;
+        }
+        ctx.stroke();
+      }
+
+      // trailing sparkles/dots
+      for (let i = 2; i < Math.min(pts.length, 18); i += 3) {
+        const p = pts[i];
+        const prog = i / pts.length;
+        const r = 3.2 * (1 - prog);
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255, 240, 180, ${0.55 * (1 - prog)})`;
+        ctx.shadowColor = 'rgba(255, 210, 90, 0.7)';
+        ctx.shadowBlur = 10;
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // head glow
+      const pulse = 0.92 + Math.sin(now * 0.008) * 0.08;
+      const rg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 26 * pulse);
+      rg.addColorStop(0, 'rgba(255, 245, 210, 0.95)');
+      rg.addColorStop(0.35, 'rgba(255, 210, 90, 0.45)');
+      rg.addColorStop(1, 'rgba(255, 180, 0, 0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 26 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // white cursor/arrow-like head marker
+      ctx.save();
+      ctx.translate(head.x, head.y);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.strokeStyle = 'rgba(30,30,30,0.35)';
+      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(255,220,120,0.8)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 16);
+      ctx.lineTo(4.5, 11.5);
+      ctx.lineTo(7.5, 18);
+      ctx.lineTo(10, 17);
+      ctx.lineTo(7, 10.5);
+      ctx.lineTo(12, 10.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    function animate(now) {
+      // master overlay fade for seamless activation/deactivation
+      const fadeTarget = overlayActive ? 1 : 0;
+      overlayFade += (fadeTarget - overlayFade) * (overlayActive ? 0.22 : 0.16);
+
+      // smooth head toward target (fluid, low-latency)
+      if (target && head) {
+        const dx = target.x - head.x;
+        const dy = target.y - head.y;
+        const dist = Math.hypot(dx, dy);
+        const ease = dist > 120 ? 0.38 : dist > 40 ? 0.3 : 0.22;
+        head.x += dx * ease;
+        head.y += dy * ease;
+        addTrailPoint(head.x, head.y, now);
+      }
+
+      const idleFor = target ? (now - lastMoveAt) : 9999;
+      if (idleFor > IDLE_MS) {
+        const k = Math.min(1, (idleFor - IDLE_MS) / FADE_MS);
+        const eased = 1 - Math.pow(1 - k, 3);
+        visibleAlpha = Math.max(0, 1 - eased);
+        // trim trail for seamless disappear
+        if (trail.length > 0 && eased > 0.12) trail.pop();
+        if (trail.length > 0 && eased > 0.4) trail.pop();
+        if (trail.length > 0 && eased > 0.7) trail.pop();
+      } else if (overlayActive) {
+        visibleAlpha = Math.min(1, visibleAlpha + (1 - visibleAlpha) * 0.22);
+      }
+
+      if (hint) {
+        const ha = overlayActive ? Math.max(visibleAlpha, 0.85) : visibleAlpha;
+        hint.style.opacity = String(Math.max(0, Math.min(1, ha * overlayFade)));
+        hint.style.transform = `translateX(-50%) translateY(${(1 - overlayFade) * -6}px)`;
+      }
+
+      // age out old points
+      const cutoff = now - 500;
+      while (trail.length > 1 && trail[trail.length - 1].t < cutoff) trail.pop();
+
+      drawRibbon(now);
+      if (selections.length) drawSelections(now);
+
+      if (!overlayActive && overlayFade <= 0.02) {
+        visibleAlpha = 0;
+        target = null;
+        head = null;
+        trail = [];
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      }
+
+      if (!overlayActive && overlayFade <= 0.02 && !selections.length) {
+        running = false;
+        return;
+      }
+
+      if (overlayActive && visibleAlpha <= 0.01 && (!target || idleFor > IDLE_MS + FADE_MS + 100)) {
+        // keep loop alive while active for seamless reappearance
+      } else if (!overlayActive && visibleAlpha <= 0.01 && (!target || idleFor > IDLE_MS + FADE_MS + 100) && selections.length) {
+        // keep animating selection only
+      } else if (!overlayActive && overlayFade <= 0.02 && !selections.length) {
+        running = false;
+        return;
+      }
+
+      requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>FckClicky · mockup rifinitura UI</title>
+<style>
+  /* Hallmark · mockup sheet (non-production) · theme: Fluent dark · tone: utilitarian
+   * pre-emit critique: P4 H4 E4 S4 R4 V4
+   */
+  :root {
+    --accent: #60cdff;
+    --accent-fill: #60cdff;
+    --accent-text: #003a5c;
+    --accent-subtle: rgba(96, 205, 255, 0.14);
+
+    --layer: rgba(255, 255, 255, 0.0605);
+    --layer-alt: rgba(255, 255, 255, 0.0419);
+    --layer-hover: rgba(255, 255, 255, 0.0837);
+    --layer-pressed: rgba(255, 255, 255, 0.0326);
+    --card-bg: rgba(43, 43, 43, 0.98);
+    --flyout-bg: #2b2b2b;
+    --stroke: rgba(255, 255, 255, 0.0698);
+    --stroke-strong: rgba(255, 255, 255, 0.12);
+    --divider: rgba(255, 255, 255, 0.08);
+
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.786);
+    --text-tertiary: rgba(255, 255, 255, 0.544);
+    --text-disabled: rgba(255, 255, 255, 0.363);
+    --success: #6ccb5f;
+    --critical: #ff99a4;
+
+    --r-control: 4px;
+    --r-overlay: 8px;
+    --r-card: 8px;
+    --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --font-icon: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    padding: 34px 40px 60px;
+    background:
+      radial-gradient(1200px 500px at 20% -10%, #1d2733 0%, transparent 60%),
+      linear-gradient(160deg, #12161b, #0c0f12 60%, #101318);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .glyph { font-family: var(--font-icon); font-style: normal; line-height: 1; }
+
+  /* ---------- doc chrome (this sheet only) ---------- */
+  .doc-head { max-width: 1040px; margin: 0 0 26px; }
+  .doc-kicker {
+    color: var(--accent); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .doc-head h1 {
+    margin: 8px 0 6px; font-family: var(--font-display);
+    font-size: 27px; font-weight: 600; letter-spacing: -0.4px;
+  }
+  .doc-head p { color: var(--text-tertiary); font-size: 12.5px; line-height: 1.55; max-width: 74ch; }
+
+  .block { max-width: 1040px; margin: 0 0 34px; }
+  .block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .block-head h2 { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+  .block-head span { color: var(--text-tertiary); font-size: 11.5px; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+  .col { min-width: 0; }
+  .cap {
+    display: flex; align-items: center; gap: 7px;
+    margin: 0 0 8px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-tertiary);
+  }
+  .cap .tag {
+    padding: 1px 6px; border-radius: 3px; font-size: 9.5px; letter-spacing: 0.06em;
+    border: 1px solid var(--stroke-strong); color: var(--text-secondary);
+  }
+  .cap .tag.now { border-color: rgba(255, 153, 164, 0.4); color: var(--critical); }
+  .cap .tag.new { border-color: rgba(108, 203, 95, 0.4); color: var(--success); }
+  .note { margin-top: 8px; color: var(--text-tertiary); font-size: 11px; line-height: 1.5; max-width: 44ch; }
+
+  /* stage that mimics a desktop strip behind the notch window */
+  .stage {
+    width: 380px; height: 34px; position: relative;
+    background: linear-gradient(180deg, #20242a, #191d22);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+  .stage.zoom { zoom: 2; }
+  .zoomcol { width: 800px; }
+  .zlabel {
+    margin: 14px 0 5px; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-tertiary);
+  }
+
+  /* ================== NOTCH — OGGI ================== */
+  .n-today {
+    position: absolute; top: 2px; left: 3px; right: 3px; height: 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 4px 0 7px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0) 55%), var(--flyout-bg);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r-overlay);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
+  .n-today .logo {
+    width: 13px; height: 13px; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; background: linear-gradient(145deg, var(--accent), var(--accent-fill));
+    color: var(--accent-text); font-family: var(--font-icon); font-size: 8px; line-height: 1;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset, 0 0 12px rgba(96, 205, 255, 0.45);
+  }
+  .n-today .status {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0 72px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05px;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+    white-space: nowrap; overflow: hidden;
+  }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto;
+    background: var(--success); box-shadow: 0 0 0 2px rgba(108, 203, 95, 0.18);
+  }
+  .dot.busy { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-subtle); }
+  .dot.err { background: var(--critical); box-shadow: 0 0 0 2px rgba(255, 153, 164, 0.22); }
+  .controls { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+  .icon-btn {
+    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    padding: 0; border: 1px solid transparent; border-radius: var(--r-control);
+    background: transparent; color: var(--text-secondary);
+    font-family: var(--font-icon); font-size: 9px; line-height: 1; cursor: default;
+  }
+
+  /* ================== NOTCH — PROPOSTA A (rifinita) ================== */
+  .n-a {
+    position: absolute; top: 2px; left: 3px; right: 3px; height: 24px;
+    display: flex; align-items: center;
+    padding: 0 3px 0 6px;
+    background: var(--flyout-bg);
+    border: 1px solid rgba(255, 255, 255, 0.085);
+    border-radius: var(--r-overlay);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  }
+  .n-a .logo {
+    width: 14px; height: 14px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-family: var(--font-icon); font-size: 8.5px;
+  }
+  .n-a .status {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    gap: 7px; padding: 0 74px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1px;
+    white-space: nowrap; overflow: hidden;
+  }
+  .n-a .status .txt { overflow: hidden; text-overflow: ellipsis; }
+  .n-a .dot { width: 5px; height: 5px; box-shadow: none; }
+  .n-a .dot.busy { background: var(--accent); }
+  .n-a .dot.err { background: var(--critical); }
+  .n-a .controls { gap: 3px; }
+  .n-a .icon-btn { width: 20px; height: 20px; font-size: 10px; }
+  .n-a .icon-btn.hover { background: var(--layer-hover); color: var(--text-primary); }
+  .n-a .icon-btn.close:hover { background: #c42b1c; color: #fff; }
+
+  /* ================== NOTCH — PROPOSTA B (capsula) ================== */
+  .n-b {
+    position: absolute; top: 3px; left: 6px; right: 6px; height: 26px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 5px 0 8px;
+    background: #262626;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+  }
+  .n-b .status {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12px;
+    min-width: 0;
+  }
+  .n-b .status .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .n-b .logo { width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-text); font-family: var(--font-icon); font-size: 8px; }
+  .n-b .controls { gap: 2px; }
+  .n-b .icon-btn { width: 22px; height: 22px; border-radius: 999px; font-size: 10px; }
+  .n-b .icon-btn.hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+  /* ================== SETTINGS panes ================== */
+  .pane {
+    width: 520px; padding: 0 0 12px;
+    background: var(--flyout-bg);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r-overlay);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.46), 0 2px 8px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+  }
+  .pane-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 10px 9px 14px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .pane-title { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+  .pane-title .glyph { color: var(--text-secondary); font-size: 13px; }
+  .pane-body { padding: 10px; }
+
+  /* OGGI: card + inset highlight + 0.5px type steps */
+  .card-now {
+    padding: 10px; border: 1px solid var(--stroke); border-radius: var(--r-card);
+    background: var(--card-bg);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+  .card-now + .card-now { margin-top: 10px; }
+  .g-title-now {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.1px;
+  }
+  .g-title-now .glyph { color: var(--accent); font-size: 12px; opacity: 0.9; }
+  .f-label-now { display: block; margin-bottom: 4px; font-size: 11.5px; color: var(--text-secondary); }
+  .tb-now {
+    width: 100%; height: 30px; padding: 0 9px;
+    color: var(--text-primary); font-family: var(--font-ui); font-size: 12px;
+    background: var(--layer); border: 1px solid var(--stroke);
+    border-bottom-color: var(--stroke-strong);
+    border-radius: var(--r-control);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  }
+  .tb-now.focus { border-bottom: 2px solid var(--accent); padding-bottom: 0; }
+
+  /* PROPOSTA A: card, ma senza bevel finto, type scale a 3 gradini */
+  .card-a {
+    padding: 12px; border: 1px solid var(--stroke); border-radius: var(--r-card);
+    background: var(--layer-alt);
+  }
+  .card-a + .card-a { margin-top: 8px; }
+  .g-title-a {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 10px;
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+  }
+  .g-title-a .glyph { color: var(--accent); font-size: 12.5px; }
+  .f-a { display: block; margin-bottom: 10px; }
+  .f-a:last-child { margin-bottom: 0; }
+  .f-a .lbl { display: block; margin-bottom: 5px; font-size: 12px; color: var(--text-secondary); }
+  .tb-a {
+    width: 100%; height: 32px; padding: 0 10px;
+    color: var(--text-primary); font-family: var(--font-ui); font-size: 12.5px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--stroke-strong);
+    border-radius: var(--r-control);
+    outline: none;
+  }
+  .tb-a.focus {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: var(--accent);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .tb-a::placeholder { color: var(--text-tertiary); }
+
+  /* PROPOSTA B: sezioni piatte WinUI */
+  .sect-b { padding: 2px 4px 12px; }
+  .sect-b + .sect-b { border-top: 1px solid var(--divider); padding-top: 12px; }
+  .g-title-b {
+    display: flex; align-items: center; gap: 7px; margin: 0 0 10px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .g-title-b .glyph { color: var(--accent); font-size: 13px; }
+  .row-b { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 12px; align-items: center; padding: 5px 0; }
+  .row-b .lbl { font-size: 12.5px; color: var(--text-secondary); }
+  .row-b .val { font-size: 12.5px; color: var(--text-primary); }
+  .tb-b {
+    width: 100%; height: 30px; padding: 0 10px;
+    color: var(--text-primary); font-family: var(--font-ui); font-size: 12.5px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--stroke);
+    border-radius: var(--r-control);
+  }
+
+  .foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin: 0; padding: 10px 12px;
+    border-top: 1px solid var(--stroke);
+    background: #262626;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 12px;
+    font-family: var(--font-ui); font-size: 12px;
+    color: var(--text-primary);
+    background: var(--layer);
+    border: 1px solid var(--stroke-strong);
+    border-radius: var(--r-control);
+  }
+  .btn.accent { background: var(--accent); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+
+  /* ================== DETAILS ================== */
+  .details { display: flex; flex-wrap: wrap; gap: 12px; }
+  .spec {
+    width: 240px; padding: 12px;
+    border: 1px solid var(--stroke); border-radius: var(--r-card); background: rgba(255, 255, 255, 0.028);
+  }
+  .spec h3 { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 10px; }
+  .spec p { margin-top: 8px; color: var(--text-tertiary); font-size: 11px; line-height: 1.5; }
+  .spec .inline { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .ring { width: 20px; height: 20px; border-radius: 3px; background: var(--layer-hover); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--flyout-bg); }
+  .ring-bad { width: 20px; height: 20px; border-radius: 3px; background: var(--layer-hover); outline: 2px solid #fff; outline-offset: 1px; }
+</style>
+</head>
+<body>
+
+<header class="doc-head">
+  <div class="doc-kicker">Hallmark · mockup</div>
+  <h1>Rifinitura UI — notch e impostazioni</h1>
+  <p>Nessuna modifica strutturale: stesse finestre, stessa disposizione, stessi controlli. Solo pulizia di decorazioni ridondanti, scala tipografica e stati. Confronto a scala reale (1 px di finestra = 1 px qui); la riga ingrandita è 2×.</p>
+</header>
+
+<!-- ============ 01 NOTCH ============ -->
+<section class="block">
+  <div class="block-head">
+    <h2>01 · Notch</h2>
+    <span>barra 24 px in una finestra 380 × 34</span>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="cap">Oggi <span class="tag now">da rifinire</span></div>
+      <div class="stage">
+        <div class="n-today">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot"></span> Pronto · Ctrl+Alt per parlare</div>
+          <div class="controls">
+            <button class="icon-btn">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+      <p class="note">Gradient + alone interno + ombra colorata sul logo: tre decorazioni su 24 px. Testo 10,5 px con ombra propria, pallino con anello da 2 px che sembra un blob.</p>
+    </div>
+
+    <div class="col">
+      <div class="cap">Proposta A · rifinita <span class="tag new">consigliata</span></div>
+      <div class="stage">
+        <div class="n-a">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot"></span><span class="txt">Pronto · Ctrl+Alt per parlare</span></div>
+          <div class="controls">
+            <button class="icon-btn hover">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+      <p class="note">Superficie piatta, un solo bordo e una sola ombra. Testo 11 px senza ombra, pallino 5 px senza anello. Bottone a 20 px con hover tinta, niente scale.</p>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 18px;">
+    <div class="col">
+      <div class="cap">Proposta B · capsula</div>
+      <div class="stage">
+        <div class="n-b">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot"></span><span class="txt">Pronto · Ctrl+Alt per parlare</span></div>
+          <div class="controls">
+            <button class="icon-btn hover">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+      <p class="note">Stessa barra ma a pillola (26 px, radio pieno), logo tondo, bottoni tondi. Più “assistente”, meno WinUI: cambia il carattere del prodotto, non la funzione.</p>
+    </div>
+
+    <div class="col zoomcol">
+      <div class="cap">Confronto 2× · stesso stato</div>
+      <div class="zlabel">oggi</div>
+      <div class="stage zoom">
+        <div class="n-today">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot"></span> Pronto · Ctrl+Alt per parlare</div>
+          <div class="controls">
+            <button class="icon-btn">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="zlabel">proposta a</div>
+      <div class="stage zoom">
+        <div class="n-a">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot"></span><span class="txt">Pronto · Ctrl+Alt per parlare</span></div>
+          <div class="controls">
+            <button class="icon-btn hover">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="zlabel">proposta a · ascolto</div>
+      <div class="stage zoom">
+        <div class="n-a">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot busy"></span><span class="txt">Ascolto…</span></div>
+          <div class="controls">
+            <button class="icon-btn">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="zlabel">proposta a · errore</div>
+      <div class="stage zoom">
+        <div class="n-a">
+          <span class="logo">&#xE8BD;</span>
+          <div class="status"><span class="dot err"></span><span class="txt">Microfono non disponibile</span></div>
+          <div class="controls">
+            <button class="icon-btn">&#xE713;</button>
+            <button class="icon-btn">&#xE921;</button>
+            <button class="icon-btn">&#xE8BB;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 SETTINGS ============ -->
+<section class="block">
+  <div class="block-head">
+    <h2>02 · Impostazioni</h2>
+    <span>estratto di 1 gruppo + footer, larghezza reale 520 px</span>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="cap">Oggi <span class="tag now">da rifinire</span></div>
+      <div class="pane">
+        <div class="pane-head">
+          <div class="pane-title"><span class="glyph">&#xE713;</span> Impostazioni</div>
+          <button class="icon-btn">&#xE8BB;</button>
+        </div>
+        <div class="pane-body">
+          <div class="card-now">
+            <div class="g-title-now"><span class="glyph">&#xE774;</span> API remota</div>
+            <label class="f-label-now">Base URL</label>
+            <input class="tb-now" value="http://127.0.0.1:31415/v1" />
+            <label class="f-label-now" style="margin-top: 8px;">API Key</label>
+            <input class="tb-now focus" value="••••••••••••••••••••" />
+          </div>
+          <div class="card-now">
+            <div class="g-title-now"><span class="glyph">&#xE720;</span> Riconoscimento vocale</div>
+            <label class="f-label-now">Provider STT</label>
+            <input class="tb-now" value="Locale — faster-whisper" />
+          </div>
+        </div>
+        <div class="foot"><button class="btn">&#xE896; Setup…</button><button class="btn accent">&#xE73E; Salva</button></div>
+      </div>
+      <p class="note">Card quasi opache dentro un pannello quasi opaco (doppio fondo), bevel interno finto, 4 icone colorate una per gruppo, focus che ispessisce il bordo di 1 px e sposta il testo.</p>
+    </div>
+
+    <div class="col">
+      <div class="cap">Proposta A · card pulite <span class="tag new">consigliata</span></div>
+      <div class="pane">
+        <div class="pane-head">
+          <div class="pane-title"><span class="glyph">&#xE713;</span> Impostazioni</div>
+          <button class="icon-btn">&#xE8BB;</button>
+        </div>
+        <div class="pane-body">
+          <div class="card-a">
+            <div class="g-title-a"><span class="glyph">&#xE774;</span> API remota</div>
+            <label class="f-a"><span class="lbl">Base URL</span><input class="tb-a" value="http://127.0.0.1:31415/v1" /></label>
+            <label class="f-a"><span class="lbl">API Key</span><input class="tb-a focus" value="••••••••••••••••••••" /></label>
+          </div>
+          <div class="card-a">
+            <div class="g-title-a"><span class="glyph">&#xE720;</span> Riconoscimento vocale</div>
+            <label class="f-a"><span class="lbl">Provider STT</span><input class="tb-a" value="Locale — faster-whisper" /></label>
+          </div>
+        </div>
+        <div class="foot"><button class="btn">&#xE896; Setup…</button><button class="btn accent">&#xE73E; Salva</button></div>
+      </div>
+      <p class="note">Card trasparenti sopra la superficie (un solo piano), titolo in testo primario, campi 32 px, focus = bordo accent + underline interno senza shift, etichette 12 px.</p>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 18px;">
+    <div class="col">
+      <div class="cap">Proposta B · sezioni piatte</div>
+      <div class="pane">
+        <div class="pane-head">
+          <div class="pane-title"><span class="glyph">&#xE713;</span> Impostazioni</div>
+          <button class="icon-btn">&#xE8BB;</button>
+        </div>
+        <div class="pane-body">
+          <div class="sect-b">
+            <div class="g-title-b"><span class="glyph">&#xE774;</span> API remota</div>
+            <div class="row-b"><span class="lbl">Base URL</span><input class="tb-b" value="http://127.0.0.1:31415/v1" /></div>
+            <div class="row-b"><span class="lbl">API Key</span><input class="tb-b" value="••••••••••••••••••••" /></div>
+          </div>
+          <div class="sect-b">
+            <div class="g-title-b"><span class="glyph">&#xE720;</span> Riconoscimento vocale</div>
+            <div class="row-b"><span class="lbl">Provider STT</span><span class="val">Locale — faster-whisper</span></div>
+          </div>
+        </div>
+        <div class="foot"><button class="btn">&#xE896; Setup…</button><button class="btn accent">&#xE73E; Salva</button></div>
+      </div>
+      <p class="note">Zero card: sezioni separate da hairline, etichetta a sinistra e controllo a destra. È il pattern di Impostazioni di Windows 11: più denso, meno “form”, ma cambia la disposizione dei campi.</p>
+    </div>
+
+    <div class="col">
+      <div class="cap">Dettagli</div>
+      <div class="details">
+        <div class="spec">
+          <h3>Focus ring</h3>
+          <div class="inline" style="gap: 14px;">
+            <span class="ring-bad"></span>
+            <span class="ring"></span>
+          </div>
+          <p>Sinistra: outline 2 px staccato di 1 px (non tocca il bordo). Destra: anello a doppio strato, sempre 2 px + 1 px di stacco, visibile su tinta accent.</p>
+        </div>
+        <div class="spec">
+          <h3>Stato</h3>
+          <div class="inline"><span class="dot"></span> pronto</div>
+          <div class="inline" style="margin-top: 6px;"><span class="dot busy"></span> ascolto</div>
+          <div class="inline" style="margin-top: 6px;"><span class="dot err"></span> errore</div>
+          <p>Il pallino non porta anello: 6 px di colore bastano. Il pulse resta solo su “ascolto”, dove comunica davvero.</p>
+        </div>
+        <div class="spec">
+          <h3>Bottone accent</h3>
+          <div class="inline"><button class="btn accent">Salva</button><button class="btn">Annulla</button></div>
+          <p>Hover = 6% di bianco mescolato al colore accent (color-mix), non un filter: nessun cambio di antialiasing del testo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
