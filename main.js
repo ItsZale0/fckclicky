@@ -30,6 +30,8 @@ const DEFAULT_CONFIG = {
   stt_model: 'auto',
   tts_model: 'auto',
   tts_voice: 'alloy',
+  tts_provider: 'remote', // 'remote' | 'local_sapi'
+  tts_local_lang: 'auto', // auto | it | en
   stt_provider: 'remote', // 'remote' | 'local_whisper'
   local_whisper_bin: '',
   local_whisper_model: '',
@@ -814,8 +816,59 @@ ipcMain.handle('ai-vision', async (e, { prompt, imageBase64, stream }) => {
   }
   return await requestJson(url, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, cfg.ai_api_key?{Authorization:'Bearer '+cfg.ai_api_key}:{}) }, body);
 });
+function runLocalSapiTts(text, cfg) {
+  return new Promise((resolve, reject) => {
+    try {
+      const t = String(text || '').trim();
+      if (!t) return resolve({ binary: '', contentType: 'audio/wav' });
+      const tmpDir = path.join(CONFIG_DIR, 'tmp');
+      fs.mkdirSync(tmpDir, { recursive: true });
+      const outFile = path.join(tmpDir, `tts-${randomUUID()}.wav`);
+      const lang = (cfg.tts_local_lang || 'auto').toLowerCase();
+      // Pass text as base64 UTF-8 to avoid PowerShell escaping issues
+      const b64Text = Buffer.from(t, 'utf8').toString('base64');
+      const ps = `
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.Speech
+$text = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64Text}'))
+$lang = '${lang}'
+$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$voice = $null
+if ($lang -ne 'auto') {
+  $voices = $s.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo }
+  $voice = $voices | Where-Object { $_.Culture.Name.ToLower().StartsWith($lang) } | Select-Object -First 1
+  if (-not $voice -and $lang -eq 'it') { $voice = $voices | Where-Object { $_.Name -match 'italian|italia' } | Select-Object -First 1 }
+  if (-not $voice -and $lang -eq 'en') { $voice = $voices | Where-Object { $_.Name -match 'english|inglese' } | Select-Object -First 1 }
+  if ($voice) { $s.SelectVoice($voice.Name) }
+}
+$s.SetOutputToWaveFile('${outFile.replace(/\\/g, '\\\\')}')
+$s.Speak($text)
+$s.Dispose()
+`;
+      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], { windowsHide: true, timeout: 120000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+        try {
+          if (err) {
+            const detail = String(stderr || stdout || err.message || err).replace(/\s+/g, ' ').trim().slice(0, 500);
+            return reject(new Error('Local TTS failed: ' + detail));
+          }
+          if (!fs.existsSync(outFile)) return reject(new Error('Local TTS failed: output file not created'));
+          const buf = fs.readFileSync(outFile);
+          resolve({ binary: buf.toString('base64'), contentType: 'audio/wav' });
+        } catch (e2) {
+          reject(e2);
+        } finally {
+          try { fs.unlinkSync(outFile); } catch {}
+        }
+      });
+    } catch (e) { reject(e); }
+  });
+}
+
 ipcMain.handle('ai-tts', async (e, { text }) => {
   const cfg = ensureConfig();
+  if ((cfg.tts_provider || 'remote') === 'local_sapi') {
+    return await runLocalSapiTts(text, cfg);
+  }
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/audio/speech';
   const body = { model: cfg.tts_model || 'auto', input: text, voice: cfg.tts_voice || 'alloy' };
   return await requestJson(url, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, cfg.ai_api_key?{Authorization:'Bearer '+cfg.ai_api_key}:{}), binary: true }, body, false, null);

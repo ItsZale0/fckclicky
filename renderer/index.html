@@ -756,11 +756,18 @@
             <select id="cfgSttModel" class="combo"><option value="auto">auto</option></select>
           </label>
           <label class="field">
-            <span class="label">TTS (audio)</span>
+            <span class="label">TTS provider</span>
+            <select id="cfgTtsProvider" class="combo">
+              <option value="remote">Remote API (/audio/speech)</option>
+              <option value="local_sapi">Local - Windows (SAPI)</option>
+            </select>
+          </label>
+          <label class="field" id="cfgTtsModelField">
+            <span class="label">TTS model (remote)</span>
             <select id="cfgTtsModel" class="combo"><option value="auto">auto</option></select>
           </label>
-          <label class="field">
-            <span class="label">TTS voice</span>
+          <label class="field" id="cfgTtsVoiceField">
+            <span class="label">TTS voice (remote)</span>
             <select id="cfgTtsVoice" class="combo">
               <option value="alloy">alloy</option>
               <option value="echo">echo</option>
@@ -768,6 +775,14 @@
               <option value="onyx">onyx</option>
               <option value="nova">nova</option>
               <option value="shimmer">shimmer</option>
+            </select>
+          </label>
+          <label class="field" id="cfgTtsLocalLangField" style="display:none;">
+            <span class="label">Local TTS language</span>
+            <select id="cfgTtsLocalLang" class="combo">
+              <option value="auto">Auto (system voice)</option>
+              <option value="it">Italiano</option>
+              <option value="en">English</option>
             </select>
           </label>
         </div>

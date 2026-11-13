@@ -55,20 +55,21 @@
     #subtitle {
       position: fixed;
       left: 50%;
-      bottom: 8vh;
+      bottom: 6vh;
       transform: translateX(-50%) translateY(10px);
-      max-width: min(1100px, calc(100vw - 80px));
+      width: min(1100px, calc(100vw - 80px));
+      max-width: calc(100vw - 80px);
       padding: 0;
       border-radius: 0;
       background: transparent;
       color: #fff;
       border: none;
       box-shadow: none;
-      font: 600 32px/1.4 var(--font-ui);
+      font: 600 34px/1.35 var(--font-ui);
       letter-spacing: 0.01em;
       text-align: center;
-      white-space: normal;
-      word-break: break-word;
+      white-space: nowrap;
+      overflow: hidden;
       z-index: 30;
       pointer-events: none;
       opacity: 0;
@@ -78,21 +79,18 @@
       text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 4px 18px rgba(0,0,0,0.75), 0 0 2px rgba(0,0,0,1);
     }
     #subtitle.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    #subtitle p { margin: 0 0 0.4em; }
-    #subtitle p:last-child { margin-bottom: 0; }
-    #subtitle ul, #subtitle ol { margin: 0.3em 0 0.3em 1.2em; text-align: left; display: inline-block; }
-    #subtitle code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; background: rgba(255,255,255,0.14); padding: 0.1em 0.35em; border-radius: 4px; }
-    #subtitle pre { margin: 0.4em 0; text-align: left; background: rgba(0,0,0,0.45); padding: 10px 12px; border-radius: 8px; overflow: auto; }
-    #subtitle pre code { background: transparent; padding: 0; }
-    #subtitle a { color: var(--accent); }
-    #subtitle h1,#subtitle h2,#subtitle h3 { font-size: 1.05em; margin: 0.2em 0; }
+    #subtitle .sub-inner {
+      display: inline-block;
+      white-space: nowrap;
+      will-change: transform;
+      padding: 0 2px;
+    }
     @media (prefers-color-scheme: light) {
       #subtitle { color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9); }
-      #subtitle code { background: rgba(0,0,0,0.18); }
-      #subtitle pre { background: rgba(0,0,0,0.5); }
     }
     @media (prefers-reduced-motion: reduce) {
       #hint, #subtitle { transition-duration: 0.001ms !important; }
+      #subtitle .sub-inner { animation: none !important; transform: none !important; }
     }
   </style>
 </head>
@@ -215,18 +213,86 @@
       return html;
     }
     let subtitleTimer = null;
+    let subtitleScrollRaf = null;
+    function stopSubtitleScroll() {
+      if (subtitleScrollRaf) { cancelAnimationFrame(subtitleScrollRaf); subtitleScrollRaf = null; }
+    }
+    function startSubtitleScroll(inner) {
+      stopSubtitleScroll();
+      if (!inner || !subtitleEl) return;
+      const containerW = subtitleEl.clientWidth;
+      const contentW = inner.scrollWidth;
+      const overflow = contentW - containerW;
+      if (overflow <= 8) {
+        inner.style.transform = 'translateX(0px)';
+        return;
+      }
+      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReduced) {
+        inner.style.transform = 'translateX(0px)';
+        return;
+      }
+      const speed = 60; // px/sec
+      const pause = 1200;
+      const total = overflow;
+      const duration = (total / speed) * 1000;
+      let start = null;
+      let phase = 'pauseStart'; // pauseStart -> scroll -> pauseEnd -> scrollBack
+      let phaseStart = null;
+      const step = (ts) => {
+        if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
+        if (start == null) start = ts;
+        if (phaseStart == null) phaseStart = ts;
+        let x = 0;
+        if (phase === 'pauseStart') {
+          x = 0;
+          if (ts - phaseStart >= pause) { phase = 'scroll'; phaseStart = ts; }
+        } else if (phase === 'scroll') {
+          const p = Math.min(1, (ts - phaseStart) / duration);
+          x = -total * p;
+          if (p >= 1) { phase = 'pauseEnd'; phaseStart = ts; }
+        } else if (phase === 'pauseEnd') {
+          x = -total;
+          if (ts - phaseStart >= pause) { phase = 'scrollBack'; phaseStart = ts; }
+        } else if (phase === 'scrollBack') {
+          const p = Math.min(1, (ts - phaseStart) / duration);
+          x = -total * (1 - p);
+          if (p >= 1) { phase = 'pauseStart'; phaseStart = ts; }
+        }
+        inner.style.transform = `translateX(${x}px)`;
+        subtitleScrollRaf = requestAnimationFrame(step);
+      };
+      subtitleScrollRaf = requestAnimationFrame(step);
+    }
+    function toSingleLineText(t) {
+      return String(t || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+        .replace(/[*_#>-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
     function showSubtitle(text, opts = {}) {
       if (!subtitleEl) return;
       const t = (text == null) ? '' : String(text);
       if (!t.trim()) { hideSubtitle(); return; }
-      subtitleEl.innerHTML = opts.markdown === false ? escapeHtml(t).replace(/\n/g,'<br>') : renderMarkdown(t);
+      const line = toSingleLineText(t);
+      subtitleEl.innerHTML = '';
+      const inner = document.createElement('span');
+      inner.className = 'sub-inner';
+      inner.textContent = line || ' ';
+      subtitleEl.appendChild(inner);
       subtitleEl.classList.add('show');
+      // start scrolling after layout
+      requestAnimationFrame(() => startSubtitleScroll(inner));
       clearTimeout(subtitleTimer);
-      const ms = opts.ms != null ? opts.ms : Math.min(30000, Math.max(6000, t.length * 60));
+      const ms = opts.ms != null ? opts.ms : Math.min(45000, Math.max(8000, line.length * 90));
       if (ms > 0) subtitleTimer = setTimeout(hideSubtitle, ms);
     }
     function hideSubtitle() {
       clearTimeout(subtitleTimer);
+      stopSubtitleScroll();
       subtitleEl?.classList.remove('show');
     }
     if (window.fckclicky?.onOverlaySubtitle) {

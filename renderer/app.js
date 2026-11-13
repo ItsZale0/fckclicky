@@ -265,6 +265,16 @@ function updateSttProviderUI() {
   const localFields = $('#localWhisperFields');
   if (localFields) localFields.style.display = provider === 'local_whisper' ? 'block' : 'none';
 }
+function updateTtsProviderUI() {
+  const provider = $('#cfgTtsProvider')?.value || 'remote';
+  const local = provider === 'local_sapi';
+  const langField = $('#cfgTtsLocalLangField');
+  const modelField = $('#cfgTtsModelField');
+  const voiceField = $('#cfgTtsVoiceField');
+  if (langField) langField.style.display = local ? 'block' : 'none';
+  if (modelField) modelField.style.display = local ? 'none' : 'block';
+  if (voiceField) voiceField.style.display = local ? 'none' : 'block';
+}
 async function openSettings() {
   if (!settingsPanel || settingsOpen) return;
   settingsOpen = true;
@@ -278,12 +288,15 @@ async function openSettings() {
     ensureSelectHasValue($('#cfgSttModel'), cfg.stt_model || 'auto');
     ensureSelectHasValue($('#cfgTtsModel'), cfg.tts_model || 'auto');
     if ($('#cfgTtsVoice')) $('#cfgTtsVoice').value = cfg.tts_voice || 'alloy';
+    if ($('#cfgTtsProvider')) $('#cfgTtsProvider').value = cfg.tts_provider || 'remote';
+    if ($('#cfgTtsLocalLang')) $('#cfgTtsLocalLang').value = cfg.tts_local_lang || 'auto';
     if ($('#cfgSttProvider')) $('#cfgSttProvider').value = cfg.stt_provider || 'remote';
     if ($('#cfgWhisperBin')) $('#cfgWhisperBin').value = cfg.local_whisper_bin || '';
     if ($('#cfgWhisperModel')) $('#cfgWhisperModel').value = cfg.local_whisper_model || '';
     if ($('#cfgWhisperArgs')) $('#cfgWhisperArgs').value = cfg.local_whisper_args || '';
     if ($('#cfgMotionFull')) $('#cfgMotionFull').checked = motionFullEnabled();
     updateSttProviderUI();
+    updateTtsProviderUI();
   } catch {}
   if (!settingsOpen) return;
   if (settingsPanel.classList.contains('closing')) {
@@ -345,6 +358,8 @@ $('#saveSettingsBtn')?.addEventListener('click', async () => {
       stt_model: $('#cfgSttModel')?.value.trim() || 'auto',
       tts_model: $('#cfgTtsModel')?.value.trim() || 'auto',
       tts_voice: $('#cfgTtsVoice')?.value.trim() || 'alloy',
+      tts_provider: $('#cfgTtsProvider')?.value || 'remote',
+      tts_local_lang: $('#cfgTtsLocalLang')?.value || 'auto',
       stt_provider: $('#cfgSttProvider')?.value || 'remote',
       local_whisper_bin: $('#cfgWhisperBin')?.value.trim() || '',
       local_whisper_model: $('#cfgWhisperModel')?.value.trim() || '',
@@ -359,6 +374,7 @@ $('#saveSettingsBtn')?.addEventListener('click', async () => {
 });
 
 $('#cfgSttProvider')?.addEventListener('change', updateSttProviderUI);
+$('#cfgTtsProvider')?.addEventListener('change', updateTtsProviderUI);
 $('#pickWhisperBinBtn')?.addEventListener('click', async () => {
   try {
     const res = await window.fckclicky.pickFile?.({ title: 'Select Whisper executable', filters: [{ name: 'Executables', extensions: ['exe', 'cmd', 'bat'] }, { name: 'All Files', extensions: ['*'] }] });
