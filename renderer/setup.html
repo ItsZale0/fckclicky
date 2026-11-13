@@ -358,7 +358,6 @@
       <div class="app-icon glyph" aria-hidden="true">&#xE8BD;</div>
       <div>
         <h1>FckClicky Setup</h1>
-        <p class="sub">Configure speech recognition. You can change everything later in Settings.</p>
       </div>
     </header>
 
@@ -384,13 +383,6 @@
       </div>
 
       <div id="localFields" class="hidden">
-        <div class="callout">
-          <div class="title"><span class="glyph" aria-hidden="true">&#xE896;</span> Automatic installation (recommended)</div>
-          <div class="muted" style="margin-bottom:10px;">
-            Installs <strong>faster-whisper</strong> via pip, creates the transcription script at
-            <code>%LOCALAPPDATA%\FckClicky\whisper\transcribe.py</code> and preloads the model.
-            Serve <strong>Python 3.10+</strong> installato con Ã¢â‚¬Å“Add python.exe to PATHÃ¢â‚¬Â.
-          </div>
           <label class="field">Model faster-whisper
             <select id="autoModel">
               <option value="tiny">tiny - fastest (~75 MB)</option>
@@ -419,46 +411,16 @@
         <label class="field">Argomenti (opzionale, usa {model} {input} {output})
           <input id="whisperArgs" spellcheck="false" placeholder='"C:\Ã¢â‚¬Â¦\transcribe.py" {input} {model}' />
         </label>
-        <div class="muted">FckClicky saves audio to a temporary file, passes it to faster-whisper, and reads the transcript from stdout.</div>
         <div style="margin-top:10px;">
           <button id="checkWhisper" class="btn" type="button">
             <span class="glyph" aria-hidden="true">&#xE73E;</span> Verify configuration
           </button>
         </div>
-
-        <details>
-          <summary><span class="glyph" aria-hidden="true">&#xE76C;</span> Manual guide (install faster-whisper by hand)</summary>
-          <div class="body muted">
-            <strong>faster-whisper (SYSTRAN)</strong> Ã¢â‚¬â€ <a href="https://github.com/SYSTRAN/faster-whisper">github.com/SYSTRAN/faster-whisper</a>
-            <ol>
-              <li>Installa <strong>Python 3.10+</strong> da <a href="https://www.python.org/downloads/">python.org</a> Ã¢â‚¬â€ spunta <code>Add python.exe to PATH</code></li>
-              <li>In a terminal: <code>pip install -U faster-whisper</code><br>
-                (the model is downloaded automatically on first use, into the Python/Hugging Face cache)</li>
-              <li>Paste the path to <code>python.exe</code> in the field above (Browse). Example: <code>C:\Users\&lt;you&gt;\AppData\Local\Programs\Python\Python312\python.exe</code></li>
-              <li>Choose a model: <code>tiny</code>, <code>base</code> (recommended), <code>small</code>, <code>medium</code>.</li>
-              <li>Arguments: leave empty (FckClicky uses the generated script) or provide your own, e.g. <code>"C:\tools\transcribe.py" {input} {model}</code></li>
-            </ol>
-            <strong>Test command (optional)</strong>
-            <pre>python -c "from faster_whisper import WhisperModel; m=WhisperModel('base', device='cpu', compute_type='int8'); s,info=m.transcribe('audio.wav', vad_filter=True); print(' '.join(x.text for x in s))"</pre>
-            <strong>Tips</strong>
-            <ul>
-              <li><code>device='cpu', compute_type='int8'</code> is the best trade-off on CPU</li>
-              <li>GPU: <code>device='cuda', compute_type='float16'</code> with CUDA + <code>pip install faster-whisper[cuda]</code></li>
-              <li>For English: <code>base</code> is usually good, <code>small</code> is more accurate</li>
-              <li>If you have multiple Python versions, select the correct <code>python.exe</code> with "Browse".</li>
-            </ul>
-          </div>
-        </details>
       </div>
     </section>
 
     <section class="section">
       <h2><span class="glyph" aria-hidden="true">&#xE946;</span> How to use</h2>
-      <div class="muted">
-        &bull; Hold <strong>Ctrl+Alt</strong> to speak (push-to-talk), then release to send.<br>
-        &bull; With <strong>Ctrl+Alt</strong> held, draw a circle/loop on the screen to select an area.<br>
-        Ã¢â‚¬Â¢ Chat, vision e TTS possono restare su API remote anche scegliendo faster-whisper locale per lo STT.
-      </div>
     </section>
 
     <div id="msg" role="status" aria-live="polite"></div>

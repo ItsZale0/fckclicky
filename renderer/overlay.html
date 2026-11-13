@@ -55,7 +55,6 @@
   </style>
 </head>
 <body>
-  <div id="hint">Pointer active - circle an area to select it - hold Ctrl+Alt to speak</div>
   <canvas id="c"></canvas>
   <canvas id="u"></canvas>
   <canvas id="r"></canvas>
@@ -133,7 +132,7 @@
         const now = performance.now();
         lastMoveAt = now;
         visibleAlpha = Math.min(1, visibleAlpha + 0.35);
-        if (hint) { hint.style.opacity = '1'; hint.style.transform = 'translateX(-50%) translateY(0px)'; }
+        
         detectCircleGesture(x, y, now);
         if (!running) { running = true; requestAnimationFrame(animate); }
       });
@@ -187,10 +186,7 @@
         const pad = 12;
         const rect = { x: Math.max(0, minX - pad), y: Math.max(0, minY - pad), w: w + pad * 2, h: h + pad * 2 };
         setSelection(rect, { ttl: 7000 }); // short-lived, intelligent selection
-        if (hint) {
-          hint.textContent = 'Area selezionata per Clicky';
-          hint.style.opacity = '1';
-        }
+        
       }
     }
 
@@ -199,11 +195,7 @@
         const mode = payload && payload.mode;
         if (mode === 'pointer') {
           overlayActive = true;
-          if (hint) {
-            hint.textContent = "Pointer active - circle an area to select it - hold Ctrl+Alt to speak";
-            hint.style.opacity = '1';
-            hint.style.transform = 'translateX(-50%) translateY(0px)';
-          }
+          
           if (!running) { running = true; requestAnimationFrame(animate); }
         } else if (mode === 'off') {
           overlayActive = false;
@@ -486,11 +478,7 @@
         visibleAlpha = Math.min(1, visibleAlpha + (1 - visibleAlpha) * 0.22);
       }
 
-      if (hint) {
-        const ha = overlayActive ? Math.max(visibleAlpha, 0.85) : visibleAlpha;
-        hint.style.opacity = String(Math.max(0, Math.min(1, ha * overlayFade)));
-        hint.style.transform = `translateX(-50%) translateY(${(1 - overlayFade) * -6}px)`;
-      }
+      
 
       // age out old points
       const cutoff = now - 500;
