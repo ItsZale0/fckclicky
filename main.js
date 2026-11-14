@@ -565,50 +565,89 @@ let appState = {
 };
 
 function refineSelectionRect(rect, img, scale) {
-  // Heuristic vision-like refinement: tighten bounds around high-contrast/content pixels
+  // Smarter refinement: tighten bounds around prominent content/edges near the selected area.
   try {
     if (!rect || !img) return rect;
-    const crop = {
+    const imgSize = img.getSize ? img.getSize() : { width: 0, height: 0 };
+    const margin = Math.round(80 * scale); // analyze a bit around the selection for better snapping
+    const base = {
       x: Math.max(0, Math.round(rect.x * scale)),
       y: Math.max(0, Math.round(rect.y * scale)),
       width: Math.max(1, Math.round(rect.w * scale)),
       height: Math.max(1, Math.round(rect.h * scale))
+    };
+    const crop = {
+      x: Math.max(0, base.x - margin),
+      y: Math.max(0, base.y - margin),
+      width: Math.max(1, Math.min((imgSize.width || (base.x + base.width + margin)) - Math.max(0, base.x - margin), base.width + margin * 2)),
+      height: Math.max(1, Math.min((imgSize.height || (base.y + base.height + margin)) - Math.max(0, base.y - margin), base.height + margin * 2))
     };
     const sub = img.crop(crop);
     const size = sub.getSize();
     const bmp = sub.getBitmap();
     if (!bmp || !size.width || !size.height) return rect;
     const w = size.width, h = size.height;
-    let minX = w, minY = h, maxX = 0, maxY = 0, found = false;
 
-    // sample pixels and detect edges/contrast against local neighborhood
-    const step = Math.max(1, Math.floor(Math.min(w, h) / 120));
+    const step = Math.max(2, Math.floor(Math.min(w, h) / 140));
     const lum = (i) => (bmp[i] * 0.299 + bmp[i + 1] * 0.587 + bmp[i + 2] * 0.114);
-    for (let y = step; y < h - step; y += step) {
-      for (let x = step; x < w - step; x += step) {
+    const row = new Float32Array(Math.ceil(h / step));
+    const col = new Float32Array(Math.ceil(w / step));
+    const scores = [];
+    for (let y = step, yi = 0; y < h - step; y += step, yi++) {
+      for (let x = step, xi = 0; x < w - step; x += step, xi++) {
         const i = (y * w + x) * 4;
         const l = lum(i);
         const l2 = lum(((y - step) * w + x) * 4);
-        const l3 = lum((y * w + (x + step)) * 4);
-        const d = Math.abs(l - l2) + Math.abs(l - l3);
-        if (d > 28) { // edge/content
-          if (x < minX) minX = x; if (y < minY) minY = y;
-          if (x > maxX) maxX = x; if (y > maxY) maxY = y;
-          found = true;
+        const l3 = lum(((y + step) * w + x) * 4);
+        const l4 = lum((y * w + (x - step)) * 4);
+        const l5 = lum((y * w + (x + step)) * 4);
+        const d = Math.abs(l - l2) + Math.abs(l - l3) + Math.abs(l - l4) + Math.abs(l - l5);
+        if (d > 0) {
+          row[yi] += d;
+          col[xi] += d;
+          scores.push(d);
         }
       }
     }
-    if (!found) return rect;
-    // pad a bit
-    const pad = Math.round(8 * scale);
-    const rx = Math.max(0, crop.x + minX - pad);
-    const ry = Math.max(0, crop.y + minY - pad);
-    const rw = Math.min(crop.width - Math.max(0, minX - pad), (maxX - minX) + pad * 2);
-    const rh = Math.min(crop.height - Math.max(0, minY - pad), (maxY - minY) + pad * 2);
-    if (rw < 20 * scale || rh < 20 * scale) return rect;
-    // don't over-shrink; keep at least 40% of original
-    if ((rw * rh) < (crop.width * crop.height * 0.4)) return rect;
-    return { x: rx / scale, y: ry / scale, w: rw / scale, h: rh / scale };
+    if (!scores.length) return rect;
+    scores.sort((a, b) => a - b);
+    const thr = scores[Math.floor(scores.length * 0.72)] || 24;
+    const minBand = 3;
+
+    const findBand = (arr) => {
+      let s = 0, e = arr.length - 1;
+      while (s < arr.length && arr[s] < thr) s++;
+      while (e >= 0 && arr[e] < thr) e--;
+      if (e - s < minBand) return null;
+      // trim weak tails
+      let sum = 0; for (let i = s; i <= e; i++) sum += arr[i];
+      let acc = 0;
+      while (s < e && acc + arr[s] < sum * 0.06) { acc += arr[s]; s++; }
+      acc = 0;
+      while (e > s && acc + arr[e] < sum * 0.06) { acc += arr[e]; e--; }
+      return [s, e];
+    };
+
+    const bx = findBand(col);
+    const by = findBand(row);
+    if (!bx || !by) return rect;
+
+    const pad = Math.round(10 * scale);
+    const rx = Math.max(0, crop.x + bx[0] * step - pad);
+    const ry = Math.max(0, crop.y + by[0] * step - pad);
+    const rx2 = Math.min(crop.x + crop.width, crop.x + (bx[1] + 1) * step + pad);
+    const ry2 = Math.min(crop.y + crop.height, crop.y + (by[1] + 1) * step + pad);
+    const rw = Math.max(1, rx2 - rx);
+    const rh = Math.max(1, ry2 - ry);
+
+    // sanity: avoid tiny or absurdly large results
+    const area = rw * rh;
+    const baseArea = base.width * base.height;
+    if (rw < 24 * scale || rh < 24 * scale) return rect;
+    if (area < baseArea * 0.25) return rect;
+    if (area > baseArea * 2.8) return rect;
+
+    return { x: Math.round(rx / scale), y: Math.round(ry / scale), w: Math.round(rw / scale), h: Math.round(rh / scale) };
   } catch (e) {
     return rect;
   }

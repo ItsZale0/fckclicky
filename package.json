@@ -1,6 +1,6 @@
 {
   "name": "fckclicky",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "FckClicky-like Electron clone using private OpenAI-compatible APIs (no cloud subscription)",
   "main": "main.js",
   "author": "",

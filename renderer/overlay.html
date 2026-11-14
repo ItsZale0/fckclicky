@@ -337,6 +337,11 @@
     let gesturePoints = []; // {x,y,t}
     let lastGestureTrigger = 0;
 
+    // Dwell selection (hold cursor still to select area)
+    let dwellStart = 0;
+    let dwellPos = null;
+    let dwellTriggered = false;
+
     const MAX_TRAIL = 70;
     const IDLE_MS = 650;
     const FADE_MS = 550;
@@ -383,23 +388,51 @@
         const now = performance.now();
         lastMoveAt = now;
         visibleAlpha = Math.min(1, visibleAlpha + 0.35);
-        
+
+        detectDwellSelection(x, y, now);
         detectCircleGesture(x, y, now);
         if (!running) { running = true; requestAnimationFrame(animate); }
       });
     }
 
+    function detectDwellSelection(x, y, now) {
+      // "Smart" selection: hold cursor still over an element/area to select it.
+      if (!overlayActive) { dwellStart = 0; dwellPos = null; dwellTriggered = false; return; }
+      if (now - lastGestureTrigger < 1200) return;
+      if (!dwellPos) { dwellPos = { x, y }; dwellStart = now; dwellTriggered = false; return; }
+      const dist = Math.hypot(x - dwellPos.x, y - dwellPos.y);
+      if (dist > 22) {
+        // moved: reset dwell anchor
+        dwellPos = { x, y };
+        dwellStart = now;
+        dwellTriggered = false;
+        return;
+      }
+      if (!dwellTriggered && (now - dwellStart) >= 700) {
+        dwellTriggered = true;
+        lastGestureTrigger = now;
+        gesturePoints = [];
+        const size = 220; // initial area around cursor; main process refines to content bounds
+        const rect = {
+          x: Math.max(0, Math.round(x - size / 2)),
+          y: Math.max(0, Math.round(y - size / 2)),
+          w: size,
+          h: Math.round(size * 0.72)
+        };
+        setSelection(rect, { ttl: 8000 });
+      }
+    }
+
     function detectCircleGesture(x, y, now) {
-      // Track recent motion and detect circling around an area:
-      // trigger when user draws ~2 circles or circles around same area for a while.
+      // Gesture selection: draw a loop/circle around an area.
       const last = gesturePoints[gesturePoints.length - 1];
-      if (!last || Math.hypot(x - last.x, y - last.y) > 3) {
+      if (!last || Math.hypot(x - last.x, y - last.y) > 2.5) {
         gesturePoints.push({ x, y, t: now });
       }
-      // keep last ~2.5s
-      while (gesturePoints.length > 2 && now - gesturePoints[0].t > 2500) gesturePoints.shift();
-      if (gesturePoints.length < 20) return;
-      if (now - lastGestureTrigger < 1500) return; // cooldown
+      // keep recent points
+      while (gesturePoints.length > 2 && now - gesturePoints[0].t > 3000) gesturePoints.shift();
+      if (gesturePoints.length < 14) return;
+      if (now - lastGestureTrigger < 1200) return; // cooldown
 
       // bounding box / center
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -408,7 +441,7 @@
         if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
       }
       const w = maxX - minX, h = maxY - minY;
-      if (w < 40 || h < 40 || w > 700 || h > 700) return;
+      if (w < 30 || h < 30 || w > 900 || h > 900) return;
       const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
 
       // accumulate signed angle around centroid
@@ -421,23 +454,22 @@
         let d = a2 - a1;
         if (d > Math.PI) d -= Math.PI * 2;
         if (d < -Math.PI) d += Math.PI * 2;
-        // ignore points too close to center (unstable angle)
         const ra = Math.hypot(a.x - cx, a.y - cy);
         const rb = Math.hypot(b.x - cx, b.y - cy);
-        if (ra > 15 && rb > 15) { totalAngle += d; valid++; }
+        if (ra > 10 && rb > 10) { totalAngle += d; valid++; }
       }
-      if (valid < 15) return;
+      if (valid < 10) return;
 
       const turns = Math.abs(totalAngle) / (Math.PI * 2);
       const duration = now - gesturePoints[0].t;
-      // 2 circles, or ~1+ circle sustained around area for some time
-      if (turns >= 1.8 || (turns >= 1.0 && duration >= 1200)) {
+      // Easier trigger: ~1 loop quickly, or sustained loop
+      if (turns >= 1.25 || (turns >= 0.85 && duration >= 700) || (turns >= 0.7 && duration >= 1200)) {
         lastGestureTrigger = now;
         gesturePoints = []; // reset after detection
-        const pad = 12;
-        const rect = { x: Math.max(0, minX - pad), y: Math.max(0, minY - pad), w: w + pad * 2, h: h + pad * 2 };
-        setSelection(rect, { ttl: 7000 }); // short-lived, intelligent selection
-        
+        dwellStart = 0; dwellPos = null; dwellTriggered = false;
+        const pad = 10;
+        const rect = { x: Math.max(0, Math.round(minX - pad)), y: Math.max(0, Math.round(minY - pad)), w: Math.round(w + pad * 2), h: Math.round(h + pad * 2) };
+        setSelection(rect, { ttl: 8000 });
       }
     }
 
