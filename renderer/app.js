@@ -69,6 +69,7 @@ function stopSpeaking(resetStatus = false) {
   try { if (currentTtsUrl) URL.revokeObjectURL(currentTtsUrl); } catch {}
   currentTtsAudio = null;
   currentTtsUrl = null;
+  try { window.fckclicky?.setUiState?.({ busy: false, kind: 'idle' }); } catch {}
   if (resetStatus) setStatus(COPY.ready, 'ok');
 }
 
@@ -562,6 +563,8 @@ window.fckclicky?.onAssistantHoldStop?.(() => {
 
 window.fckclicky?.onAssistantIdle?.(() => {
   // Automatic idle after inactivity/release
+  // Don't reset UI if currently speaking; speaking flow will end/reset when audio finishes.
+  if (currentTtsAudio) return;
   voiceHoldActive = false;
   stopSpeaking(false);
   try { if (recording) cleanupRecording(); } catch {}
@@ -725,7 +728,8 @@ async function stopVoice() {
     answer = (answer || '').trim() || 'No response from the model.';
     try { syncAnnotations(answer); } catch {}
     uiSound.success();
-    setStatus(COPY.ready, 'ok');
+    // Keep showing "Thinking..." until speech starts (avoid flashing "Press Ctrl+Alt..." between thinking and speaking)
+    setStatus(COPY.thinking, 'thinking');
     try { transcriptEl?.classList.remove('show'); } catch {}
 
     // Show answer as subtitles. If TTS plays, scrolling will be synced to speech duration.
@@ -761,17 +765,28 @@ async function stopVoice() {
           audio.onended = finish;
           audio.onerror = finish;
           let progressRaf = null;
+          const estimatedTotalSec = Math.max(2, (answer || '').trim().split(/\s+/).filter(Boolean).length / 2.6); // ~2.6 words/sec fallback
           const stopProgress = () => { if (progressRaf) { cancelAnimationFrame(progressRaf); progressRaf = null; } };
           const sendProgress = () => {
             if (currentTtsAudio !== audio) { stopProgress(); return; }
             const dur = audio.duration;
+            let p = 0;
             if (isFinite(dur) && dur > 0) {
-              try { window.fckclicky?.setOverlaySubtitleProgress?.(Math.min(1, Math.max(0, audio.currentTime / dur))); } catch {}
+              p = audio.currentTime / dur;
+            } else {
+              // Duration unknown (e.g. some streamed formats): estimate from elapsed time/text.
+              p = audio.currentTime / estimatedTotalSec;
             }
+            try { window.fckclicky?.setOverlaySubtitleProgress?.(Math.min(0.995, Math.max(0, p))); } catch {}
             progressRaf = requestAnimationFrame(sendProgress);
           };
           const origFinish = finish;
-          const finishWithProgress = () => { stopProgress(); origFinish(); };
+          const finishWithProgress = () => {
+            try { window.fckclicky?.setOverlaySubtitleProgress?.(1); } catch {}
+            stopProgress();
+            try { window.fckclicky?.setUiState?.({ busy: false, kind: 'idle' }); } catch {}
+            origFinish();
+          };
           audio.onended = finishWithProgress;
           audio.onerror = finishWithProgress;
 
@@ -780,7 +795,9 @@ async function stopVoice() {
             if (dur) {
               showAnswerSubtitle({ scrollDurationMs: Math.max(1500, dur), ms: Math.max(5000, Math.ceil(dur) + 1500), syncToSpeech: true });
             } else {
-              showAnswerSubtitle({});
+              // Unknown duration: still sync using estimated progress from currentTime.
+              const estMs = Math.max(2500, estimatedTotalSec * 1000);
+              showAnswerSubtitle({ scrollDurationMs: estMs, ms: Math.max(6000, Math.ceil(estMs) + 1500), syncToSpeech: true });
             }
           };
           if (isFinite(audio.duration) && audio.duration > 0) {
@@ -788,19 +805,23 @@ async function stopVoice() {
           } else {
             audio.addEventListener('loadedmetadata', startWithDuration, { once: true });
             // fallback in case metadata never fires
-            setTimeout(() => { if (!subtitleShown) startWithDuration(); }, 400);
+            setTimeout(() => { if (!subtitleShown) startWithDuration(); }, 300);
           }
           audio.addEventListener('play', () => { stopProgress(); progressRaf = requestAnimationFrame(sendProgress); }, { once: true });
           audio.addEventListener('pause', stopProgress);
+          try { await window.fckclicky?.setUiState?.({ busy: true, kind: 'speaking' }); } catch {}
           await audio.play().catch((e) => { if (!subtitleShown) showAnswerSubtitle({}); finishWithProgress(); });
         } else {
           showAnswerSubtitle({});
+          setStatus(COPY.ready, 'ok');
         }
       } else {
         showAnswerSubtitle({});
+        setStatus(COPY.ready, 'ok');
       }
     } catch (_) {
       showAnswerSubtitle({});
+      setStatus(COPY.ready, 'ok');
       // ignore TTS errors
     }
   } catch (err) {
@@ -828,6 +849,7 @@ function extractContent(res) {
 
 // Parse the AI's drawing tags from a response and push them to the overlay.
 // Supported: [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label]
+// Schematic views (baseline): [VIEW:2D] or [VIEW:3D]
 function syncAnnotations(text) {
   if (!text || !window.fckclicky?.setOverlayAnnotations) return;
   const list = [];
@@ -842,8 +864,10 @@ function syncAnnotations(text) {
     if (m[7]) a.label = m[7].trim();
     list.push(a);
   }
-  if (list.length) {
-    try { window.fckclicky.setOverlayAnnotations(list); } catch {}
+  const viewMatch = String(text).match(/\[VIEW:(2D|3D)\]/i);
+  const payload = viewMatch ? { view: viewMatch[1].toLowerCase(), annotations: list } : list;
+  if ((Array.isArray(payload) && payload.length) || (payload && payload.view)) {
+    try { window.fckclicky.setOverlayAnnotations(payload); } catch {}
   }
 }
 
