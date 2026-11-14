@@ -57,6 +57,13 @@ contextBridge.exposeInMainWorld('fckclicky', {
   getActiveContext: () => ipcRenderer.invoke('get-active-context'),
   getQuickActions: () => ipcRenderer.invoke('get-quick-actions'),
   
+  // ===== Agentic PC input actions =====
+  inputMouseMove: (opts) => ipcRenderer.invoke('input-mouse-move', opts),
+  inputMouseClick: (opts) => ipcRenderer.invoke('input-mouse-click', opts),
+  inputMouseScroll: (opts) => ipcRenderer.invoke('input-mouse-scroll', opts),
+  inputKey: (opts) => ipcRenderer.invoke('input-key', opts),
+  inputGetCursor: () => ipcRenderer.invoke('input-get-cursor'),
+
   // ===== Window control =====
   setWindowSize: (opts) => ipcRenderer.invoke('set-window-size', opts),
   setUiState: (state) => ipcRenderer.invoke('set-ui-state', state),

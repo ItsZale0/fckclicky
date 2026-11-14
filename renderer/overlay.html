@@ -67,7 +67,7 @@
       box-shadow: none;
       font: 600 34px/1.35 var(--font-ui);
       letter-spacing: 0.01em;
-      text-align: center;
+      text-align: left;
       white-space: nowrap;
       overflow: hidden;
       z-index: 30;
@@ -90,7 +90,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       #hint, #subtitle { transition-duration: 0.001ms !important; }
-      #subtitle .sub-inner { animation: none !important; transform: none !important; }
+      #subtitle .sub-inner { animation: none !important; margin-left: 0 !important; }
     }
   </style>
 </head>
@@ -98,7 +98,10 @@
   <canvas id="c"></canvas>
   <canvas id="u"></canvas>
   <canvas id="r"></canvas>
+  <div id="viz3d" style="position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s ease"></div>
+  <canvas id="viz3dsoft" style="position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s ease"></canvas>
   <div id="subtitle" aria-live="polite"></div>
+  <script src="../assets/Engine/clicky-three.js"></script>
   
   <script>
     const rCanvas = document.getElementById('r');
@@ -108,7 +111,7 @@
     const hint = document.getElementById('hint');
     const subtitleEl = document.getElementById('subtitle');
 
-    // Separate annotation canvas (layer "a") for AI-drawn overlays (points/boxes/arrows/circles)
+    // Separate annotation canvas (layer "a") for AI-drawn overlays, 2D schematics and HUD
     const aCanvas = document.createElement('canvas');
     aCanvas.id = 'a';
     aCanvas.style.cssText = 'position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:6;';
@@ -116,7 +119,8 @@
     const aCtx = aCanvas.getContext('2d');
     let annotations = [];
     let viewMode = null; // '2d' | '3d' | null
-    let viewAnim = 0;
+    let viewMeta = { title: '', steps: [], focus: '' };
+    let vizAnimId = null;
 
     function resizeAnnotations() {
       const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -129,115 +133,381 @@
     window.addEventListener('resize', resizeAnnotations);
     resizeAnnotations();
 
+    // ===== Professional 3D visualization (Three.js WebGL if capable, else software 3D canvas) =====
+    const viz3dEl = document.getElementById('viz3d');
+    const viz3dSoft = document.getElementById('viz3dsoft');
+    let three = { renderer: null, scene: null, camera: null, group: null, parts: [], clockStart: 0, ready: false };
+    let soft3d = { ctx: null, w: 0, h: 0, dpr: 1, ready: false, clockStart: 0, model: null, modelName: '', loading: false };
+    const sampleModelUrl = '../assets/Engine/sample-model.obj';
+
+    function getThreeLib() {
+      const candidates = [window.THREE, window.__THREE__, window.ClickyThreeLib, window.three, window.THREEJS];
+      for (const c of candidates) {
+        if (c && typeof c === 'object' && c.Scene && c.WebGLRenderer) {
+          if (!window.THREE || typeof window.THREE === 'string') window.THREE = c;
+          return c;
+        }
+      }
+      for (const c of candidates) { if (c && typeof c === 'object' && c.Scene) return c; }
+      return null;
+    }
+    function ensureThree() {
+      if (three.ready) return true;
+      const T = getThreeLib();
+      if (!T || !viz3dEl) return false;
+      try {
+        const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        viz3dEl.appendChild(renderer.domElement);
+        const scene = new T.Scene();
+        const camera = new T.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1.2, 6);
+        scene.add(camera);
+        const amb = new T.AmbientLight(0x88ccff, 0.8); scene.add(amb);
+        const key = new T.DirectionalLight(0xffffff, 1.1); key.position.set(3,4,5); scene.add(key);
+        const rim = new T.DirectionalLight(0x60cdff, 0.8); rim.position.set(-4,2,-3); scene.add(rim);
+        const group = new T.Group(); scene.add(group);
+        three = { renderer, scene, camera, group, parts: [], clockStart: performance.now(), ready: true };
+        window.addEventListener('resize', () => {
+          if (!three.ready) return;
+          three.camera.aspect = window.innerWidth / window.innerHeight;
+          three.camera.updateProjectionMatrix();
+          three.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        return true;
+      } catch (e) { console.warn('Three init failed', e); return false; }
+    }
+    function clearThreeScene() {
+      if (!three.ready) return;
+      while (three.group.children.length) {
+        const o = three.group.children.pop();
+        try { o.geometry?.dispose?.(); } catch {}
+        try { if (Array.isArray(o.material)) o.material.forEach(m=>m.dispose?.()); else o.material?.dispose?.(); } catch {}
+      }
+      three.parts = [];
+    }
+    function ensureSoft3D() {
+      if (!viz3dSoft) return false;
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const w = window.innerWidth, h = window.innerHeight;
+      if (!soft3d.ready || soft3d.w !== w || soft3d.h !== h || soft3d.dpr !== dpr) {
+        viz3dSoft.width = Math.floor(w * dpr); viz3dSoft.height = Math.floor(h * dpr);
+        viz3dSoft.style.width = w + 'px'; viz3dSoft.style.height = h + 'px';
+        soft3d.ctx = viz3dSoft.getContext('2d');
+        soft3d.ctx.setTransform(dpr,0,0,dpr,0,0);
+        soft3d.w = w; soft3d.h = h; soft3d.dpr = dpr; soft3d.ready = true;
+      }
+      return !!soft3d.ctx;
+    }
+    function parseOBJ(text) {
+      const verts = [], faces = [];
+      String(text||'').split(/\r?\n/).forEach(line => {
+        const l = line.trim(); if (!l || l.startsWith('#')) return;
+        if (l.startsWith('v ')) { const p = l.split(/\s+/).slice(1).map(Number); if (p.length>=3) verts.push({x:p[0],y:p[1],z:p[2]}); }
+        else if (l.startsWith('f ')) { const idx = l.split(/\s+/).slice(1).map(tok => { const i=parseInt(tok.split('/')[0],10); return i>0?i-1:verts.length+i; }).filter(i=>i>=0 && i<verts.length); if (idx.length>=3) faces.push(idx); }
+      });
+      return { verts, faces };
+    }
+    async function ensureSampleModelLoaded() {
+      if (soft3d.model || soft3d.loading) return;
+      soft3d.loading = true;
+      try {
+        const res = await fetch(sampleModelUrl);
+        if (res && res.ok) { const txt = await res.text(); soft3d.model = parseOBJ(txt); soft3d.modelName = 'sample-model.obj'; }
+      } catch (e) { /* ignore */ }
+      soft3d.loading = false;
+    }
+    function rotatePoint(p, ax, ay, az) {
+      let {x,y,z} = p;
+      let cy=Math.cos(ay), sy=Math.sin(ay); let x1=x*cy+z*sy, z1=-x*sy+z*cy; x=x1; z=z1;
+      let cx=Math.cos(ax), sx=Math.sin(ax); let y1=y*cx-z*sx, z2=y*sx+z*cx; y=y1; z=z2;
+      let cz=Math.cos(az), sz=Math.sin(az); let x2=x*cz-y*sz, y2=x*sz+y*cz; x=x2; y=y2;
+      return {x,y,z};
+    }
+    function projectPoint(p, w, h, scale, camZ) {
+      const z = p.z + camZ; const f = scale / Math.max(0.6, z);
+      return { x: w*0.5 + p.x*f, y: h*0.46 - p.y*f, z };
+    }
+    function drawSoft3D(now) {
+      if (!ensureSoft3D() || viewMode !== '3d') return;
+      const ctx = soft3d.ctx, w = soft3d.w, h = soft3d.h, t = ((now||performance.now()) - (soft3d.clockStart||performance.now()))*0.001;
+      ctx.clearRect(0,0,w,h);
+      // backdrop panel glow
+      const cx=w*0.5, cy=h*0.46;
+      const rg = ctx.createRadialGradient(cx,cy,10,cx,cy,Math.min(w,h)*0.38);
+      rg.addColorStop(0,'rgba(96,205,255,0.10)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = rg; ctx.fillRect(0,0,w,h);
+
+      const rotY = t*0.7, rotX = 0.45 + Math.sin(t*0.5)*0.12, rotZ = Math.sin(t*0.3)*0.08;
+      const pulse = 0.5 + 0.5*Math.sin(t*2.0);
+      const base = (soft3d.model && soft3d.model.verts && soft3d.model.verts.length) ? soft3d.model : null;
+      const scale = Math.min(w,h)*0.17;
+
+      // floor grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(96,205,255,0.18)'; ctx.lineWidth = 1;
+      for(let i=-4;i<=4;i++){
+        const a = rotatePoint({x:i*0.7,y:-1.05,z:-3.0}, rotX, rotY, 0); const b = rotatePoint({x:i*0.7,y:-1.05,z:3.0}, rotX, rotY, 0);
+        const pa=projectPoint(a,w,h,scale,5.2), pb=projectPoint(b,w,h,scale,5.2); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+        const c = rotatePoint({x:-3.0,y:-1.05,z:i*0.7}, rotX, rotY, 0); const d = rotatePoint({x:3.0,y:-1.05,z:i*0.7}, rotX, rotY, 0);
+        const pc=projectPoint(c,w,h,scale,5.2), pd=projectPoint(d,w,h,scale,5.2); ctx.beginPath(); ctx.moveTo(pc.x,pc.y); ctx.lineTo(pd.x,pd.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      const drawMesh = (verts, faces, opts={}) => {
+        const transformed = verts.map(v => rotatePoint(v, rotX, rotY, rotZ));
+        const projected = transformed.map(v => projectPoint(v,w,h,scale,opts.camZ||5.2));
+        const faceDraw = faces.map((f, idx) => {
+          const tv = f.map(i=>transformed[i]); if (tv.length<3) return null;
+          const avgZ = tv.reduce((s,v)=>s+v.z,0)/tv.length;
+          const axv=tv[1].x-tv[0].x, ayv=tv[1].y-tv[0].y, azv=tv[1].z-tv[0].z;
+          const bxv=tv[2].x-tv[0].x, byv=tv[2].y-tv[0].y, bzv=tv[2].z-tv[0].z;
+          const nx = ayv*bzv-azv*byv, ny = azv*bxv-axv*bzv, nz = axv*byv-ayv*bxv;
+          return { f, avgZ, nz, idx };
+        }).filter(Boolean).sort((a,b)=>a.avgZ-b.avgZ);
+        faceDraw.forEach(fd => {
+          const pts = fd.f.map(i=>projected[i]); if (pts.some(p=>!isFinite(p.x))) return;
+          const light = Math.max(0.15, Math.min(1, 0.35 + (fd.nz||0)*0.25));
+          const alpha = opts.alpha!=null?opts.alpha:(0.18 + light*0.22);
+          ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath();
+          if (opts.fill !== false) { ctx.fillStyle = opts.fillColor ? opts.fillColor(light, fd, t) : `rgba(96,205,255,${alpha})`; ctx.fill(); }
+          ctx.strokeStyle = opts.stroke || `rgba(${140+light*80},${220},255,${0.35 + pulse*0.15})`;
+          ctx.lineWidth = opts.lineWidth || 1.2; ctx.stroke();
+        });
+        // vertices glow
+        if (opts.points) {
+          projected.forEach((p,i)=>{ const tw = 0.5 + 0.5*Math.sin(t*3 + i*0.7); ctx.fillStyle = `rgba(255,255,255,${0.25+tw*0.5})`; ctx.beginPath(); ctx.arc(p.x,p.y,1.6+tw*0.8,0,Math.PI*2); ctx.fill(); });
+        }
+      };
+
+      if (base) {
+        drawMesh(base.verts, base.faces, { fillColor:(l)=>`rgba(${40+l*50|0},${120+l*80|0},${180+l*60|0},${0.22+l*0.22})`, stroke:'rgba(160,235,255,0.55)', lineWidth:1.3, points:true });
+      } else {
+        // procedural exploded schematic while model loads
+        const cube = (cx3,cy3,cz3,sx,sy,sz) => {
+          const v=[{x:cx3-sx,y:cy3-sy,z:cz3-sz},{x:cx3+sx,y:cy3-sy,z:cz3-sz},{x:cx3+sx,y:cy3+sy,z:cz3-sz},{x:cx3-sx,y:cy3+sy,z:cz3-sz},{x:cx3-sx,y:cy3-sy,z:cz3+sz},{x:cx3+sx,y:cy3-sy,z:cz3+sz},{x:cx3+sx,y:cy3+sy,z:cz3+sz},{x:cx3-sx,y:cy3+sy,z:cz3+sz}];
+          const f=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]]; return {v,f};
+        };
+        const parts = [
+          cube(0,-0.4+Math.sin(t*1.2)*0.05,0,0.8,0.45,0.8),
+          cube(0,0.9+Math.sin(t*1.6)*0.08,0,0.55,0.35,0.55),
+          cube(-1.4+Math.sin(t)*0.05,0.1,0,0.35,0.25,0.35),
+          cube(1.4-Math.sin(t)*0.05,0.1,0,0.35,0.25,0.35)
+        ];
+        parts.forEach((p,i)=> drawMesh(p.v,p.f,{ fillColor:(l)=> i===0?`rgba(96,205,255,${0.18+l*0.22})`:`rgba(120,180,255,${0.14+l*0.18})`, stroke:'rgba(170,235,255,0.7)' }));
+      }
+
+      // orbiting data nodes
+      for(let i=0;i<8;i++){
+        const a=t*0.9 + i*(Math.PI*2/8); const r=2.1 + Math.sin(t*1.4+i)*0.15; const yy=0.2 + Math.sin(t*1.8+i)*0.45;
+        const p3 = rotatePoint({x:Math.cos(a)*r, y:yy, z:Math.sin(a)*r}, rotX*0.3, rotY*0.5, 0);
+        const pp = projectPoint(p3,w,h,scale,5.2);
+        const g = ctx.createRadialGradient(pp.x,pp.y,0,pp.x,pp.y,10);
+        g.addColorStop(0,'rgba(255,255,255,0.95)'); g.addColorStop(1,'rgba(96,205,255,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(pp.x,pp.y,8,0,Math.PI*2); ctx.fill();
+      }
+
+      // HUD labels
+      ctx.save(); ctx.font='600 13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(220,245,255,0.9)';
+      const label = soft3d.modelName ? ('Modello 3D: ' + soft3d.modelName) : 'Rendering 3D animato (scene + nodi agentici)';
+      ctx.fillText(label, cx, h*0.86);
+      ctx.fillStyle='rgba(180,220,245,0.75)'; ctx.font='500 12px "Segoe UI",system-ui,sans-serif';
+      ctx.fillText('Rotazione • esploso logico • flusso dati animato', cx, h*0.89);
+      ctx.restore();
+    }
+
+    function buildExploded3DScene(title) {
+      soft3d.clockStart = performance.now();
+      // try WebGL Three first
+      if (ensureThree()) {
+        const T = getThreeLib();
+        clearThreeScene();
+        const g = three.group;
+        try {
+          const matMetal = new T.MeshStandardMaterial({ color: 0x2a3b55, metalness: 0.7, roughness: 0.25, emissive: 0x0b1a2a, emissiveIntensity: 0.35 });
+          const matAccent = new T.MeshStandardMaterial({ color: 0x60cdff, metalness: 0.2, roughness: 0.3, emissive: 0x0a2a40, emissiveIntensity: 0.6, transparent: true, opacity: 0.95 });
+          const base = new T.Mesh(new T.CylinderGeometry(1.8, 2.0, 0.25, 48), matMetal); base.position.set(0,-1.1,0); g.add(base);
+          const core = new T.Mesh(new T.BoxGeometry(1.4, 1.0, 1.4), matAccent); core.position.set(0,-0.35,0); g.add(core);
+          three.parts = { base, core }; three.clockStart = performance.now();
+        } catch(e) { /* fallback below */ }
+        viz3dEl.style.opacity = '1'; if (viz3dSoft) viz3dSoft.style.opacity = '0';
+        return;
+      }
+      // software 3D fallback with external model loading
+      ensureSoft3D(); ensureSampleModelLoaded();
+      if (viz3dSoft) viz3dSoft.style.opacity = '1';
+      if (viz3dEl) viz3dEl.style.opacity = '0';
+    }
+    function renderThree(now) {
+      if (viewMode !== '3d') return;
+      if (three.ready) {
+        const t = ((now || performance.now()) - three.clockStart) * 0.001;
+        const p = three.parts;
+        if (p.core) { p.core.rotation.y = t * 0.6; p.core.position.y = -0.35 + Math.sin(t*1.2)*0.05; }
+        three.group.rotation.y = Math.sin(t*0.25)*0.25;
+        three.camera.lookAt(0,0.2,0);
+        try { three.renderer.render(three.scene, three.camera); } catch {}
+        return;
+      }
+      drawSoft3D(now);
+    }
+    function hideThree() {
+      if (viz3dEl) viz3dEl.style.opacity = '0';
+      if (viz3dSoft) viz3dSoft.style.opacity = '0';
+    }
+
+    // ===== Professional animated 2D schematic rendering =====
+    function roundRectPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+    function drawGlowText(ctx, text, x, y, size=16, align='center', color='#fff') {
+      ctx.save(); ctx.font = `600 ${size}px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif`;
+      ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.shadowColor = 'rgba(96,205,255,0.55)'; ctx.shadowBlur = 12; ctx.fillStyle = color; ctx.fillText(text,x,y); ctx.restore();
+    }
+    function drawAnimatedArrow(ctx, x1,y1,x2,y2, color, now, speed=0.0018) {
+      const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+      const grad = ctx.createLinearGradient(x1,y1,x2,y2);
+      grad.addColorStop(0,'rgba(96,205,255,0.15)'); grad.addColorStop(1,color);
+      ctx.save(); ctx.strokeStyle=grad; ctx.lineWidth=3; ctx.lineCap='round'; ctx.shadowColor=color; ctx.shadowBlur=10;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      // moving particles along edge
+      const t=(now*speed)%1; for(let k=0;k<3;k++){ const p=(t+k/3)%1; const px=x1+dx*p, py=y1+dy*p; ctx.fillStyle='rgba(255,255,255,'+(0.2+0.8*(1-Math.abs(p-0.5)*2))+')'; ctx.beginPath(); ctx.arc(px,py,3.2,0,Math.PI*2); ctx.fill(); }
+      // head
+      const ang=Math.atan2(dy,dx); ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(x2,y2);
+      ctx.lineTo(x2-12*Math.cos(ang-0.45), y2-12*Math.sin(ang-0.45));
+      ctx.lineTo(x2-12*Math.cos(ang+0.45), y2-12*Math.sin(ang+0.45)); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
     function drawSchematic2D(now) {
       const w = window.innerWidth, h = window.innerHeight;
-      const cx = w * 0.5, cy = h * 0.45;
-      const grid = 40;
+      const cx = w * 0.5, cy = h * 0.46;
+      const t = now || performance.now();
+      const pulse = 0.5 + 0.5*Math.sin(t*0.002);
       aCtx.save();
-      aCtx.strokeStyle = 'rgba(96,205,255,0.18)';
-      aCtx.lineWidth = 1;
-      for (let x = cx - 320; x <= cx + 320; x += grid) { aCtx.beginPath(); aCtx.moveTo(x, cy - 220); aCtx.lineTo(x, cy + 220); aCtx.stroke(); }
-      for (let y = cy - 220; y <= cy + 220; y += grid) { aCtx.beginPath(); aCtx.moveTo(cx - 320, y); aCtx.lineTo(cx + 320, y); aCtx.stroke(); }
-      aCtx.strokeStyle = 'rgba(96,205,255,0.7)';
-      aCtx.lineWidth = 2;
-      const boxes = [[-220,-120,140,80,'Input'],[0,-120,160,80,'Process'],[220,-120,140,80,'Output'],[0,40,160,80,'State']];
-      aCtx.font = '600 14px "Segoe UI", system-ui, sans-serif';
-      boxes.forEach(b => {
-        const bx = cx + b[0]-b[2]/2, by = cy + b[1]-b[3]/2;
-        aCtx.fillStyle = 'rgba(96,205,255,0.12)'; aCtx.strokeStyle = 'rgba(96,205,255,0.8)';
-        aCtx.fillRect(bx,by,b[2],b[3]); aCtx.strokeRect(bx,by,b[2],b[3]);
-        aCtx.fillStyle = '#fff'; aCtx.textAlign='center'; aCtx.textBaseline='middle';
-        aCtx.fillText(b[4], cx + b[0], cy + b[1]);
+      // ambient panel
+      const panelW = Math.min(980, w*0.8), panelH = 520;
+      const px = cx-panelW/2, py = cy-panelH/2;
+      const bg = aCtx.createLinearGradient(px,py,px,py+panelH);
+      bg.addColorStop(0,'rgba(10,20,35,0.55)'); bg.addColorStop(1,'rgba(8,16,28,0.35)');
+      aCtx.fillStyle = bg; aCtx.strokeStyle = 'rgba(96,205,255,'+(0.18+pulse*0.08)+')'; aCtx.lineWidth = 1.5;
+      roundRectPath(aCtx, px, py, panelW, panelH, 18); aCtx.fill(); aCtx.stroke();
+
+      // animated grid
+      aCtx.save(); roundRectPath(aCtx, px+10, py+10, panelW-20, panelH-20, 14); aCtx.clip();
+      const grid = 44; const off = (t*0.02)%grid;
+      aCtx.strokeStyle = 'rgba(96,205,255,0.08)'; aCtx.lineWidth = 1;
+      for (let x = px - grid; x <= px+panelW+grid; x += grid) { aCtx.beginPath(); aCtx.moveTo(x+off, py); aCtx.lineTo(x+off, py+panelH); aCtx.stroke(); }
+      for (let y = py - grid; y <= py+panelH+grid; y += grid) { aCtx.beginPath(); aCtx.moveTo(px, y+off); aCtx.lineTo(px+panelW, y+off); aCtx.stroke(); }
+      aCtx.restore();
+
+      // nodes
+      const labels = (viewMeta.steps && viewMeta.steps.length>=3) ? viewMeta.steps.slice(0,5) : ['Input','Analisi','Ragionamento','Azione','Output'];
+      const nodes = [
+        {x:cx-300,y:cy-60,w:170,h:74,c:'#60cdff',l:labels[0]||'Input'},
+        {x:cx-60,y:cy-120,w:180,h:74,c:'#7cf29a',l:labels[1]||'Analisi'},
+        {x:cx-60,y:cy+20,w:180,h:74,c:'#c792ff',l:labels[2]||'Ragionamento'},
+        {x:cx+220,y:cy-60,w:170,h:74,c:'#ffcf6e',l:labels[3]||'Azione'},
+      ];
+      if (labels[4]) nodes.push({x:cx+220,y:cy+110,w:170,h:66,c:'#60cdff',l:labels[4]});
+      const edges = [[0,1],[0,2],[1,3],[2,3]]; if(nodes[4]) edges.push([3,4]);
+      edges.forEach((e,i)=>{ const a=nodes[e[0]], b=nodes[e[1]]; drawAnimatedArrow(aCtx, a.x+a.w/2, a.y+a.h/2, b.x-b.w/2, b.y+b.h/2, 'rgba(96,205,255,0.85)', t, 0.0016 + i*0.0001); });
+
+      nodes.forEach((n,i)=>{
+        const floatY = Math.sin(t*0.0016 + i)*4;
+        const ny = n.y + floatY;
+        const r=14;
+        const card = aCtx.createLinearGradient(n.x,ny,n.x,ny+n.h);
+        card.addColorStop(0,'rgba(22,38,58,0.95)'); card.addColorStop(1,'rgba(14,26,42,0.95)');
+        aCtx.save(); aCtx.shadowColor=n.c; aCtx.shadowBlur=18 + pulse*6; aCtx.fillStyle=card; aCtx.strokeStyle=n.c; aCtx.lineWidth=1.8;
+        roundRectPath(aCtx,n.x,ny,n.w,n.h,r); aCtx.fill(); aCtx.stroke(); aCtx.restore();
+        // accent bar
+        aCtx.fillStyle=n.c; roundRectPath(aCtx,n.x+10,ny+10,6,n.h-20,3); aCtx.fill();
+        drawGlowText(aCtx, n.l, n.x+n.w/2+6, ny+n.h/2, 15, 'center', '#f3f9ff');
+        // status dot
+        aCtx.fillStyle=n.c; aCtx.beginPath(); aCtx.arc(n.x+n.w-16, ny+16, 4+Math.sin(t*0.004+i)*1.2, 0, Math.PI*2); aCtx.fill();
       });
-      aCtx.strokeStyle = 'rgba(255,255,255,0.6)'; aCtx.fillStyle = 'rgba(255,255,255,0.6)';
-      const arrows = [[-150,-80,-80,-80],[80,-80,150,-80],[0,-40,0,0]];
-      arrows.forEach(a => {
-        const x1=cx+a[0],y1=cy+a[1],x2=cx+a[2],y2=cy+a[3];
-        aCtx.beginPath(); aCtx.moveTo(x1,y1); aCtx.lineTo(x2,y2); aCtx.stroke();
-        const ang=Math.atan2(y2-y1,x2-x1); aCtx.beginPath(); aCtx.moveTo(x2,y2);
-        aCtx.lineTo(x2-10*Math.cos(ang-0.5), y2-10*Math.sin(ang-0.5));
-        aCtx.lineTo(x2-10*Math.cos(ang+0.5), y2-10*Math.sin(ang+0.5)); aCtx.closePath(); aCtx.fill();
-      });
-      aCtx.fillStyle='rgba(255,255,255,0.85)'; aCtx.textAlign='center';
-      aCtx.fillText('2D schematic view (agentic overlay)', cx, cy - 250);
+
+      const title = viewMeta.title || 'Schema 2D interattivo (agentic)';
+      drawGlowText(aCtx, title, cx, py+34, 20, 'center', '#ffffff');
+      drawGlowText(aCtx, viewMeta.focus || 'Flusso operativo: input → analisi → azione sullo schermo', cx, py+panelH-28, 13, 'center', 'rgba(220,240,255,0.85)');
       aCtx.restore();
     }
-    function drawSchematic3D(now) {
-      const w = window.innerWidth, h = window.innerHeight;
-      const cx = w*0.5, cy = h*0.45, s = 120, t = (now||performance.now())*0.001;
-      const rotY = t, rotX = 0.6;
-      const pts = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>{
-        let [x,y,z]=p;
-        let x1=x*Math.cos(rotY)+z*Math.sin(rotY), z1=-x*Math.sin(rotY)+z*Math.cos(rotY);
-        let y1=y*Math.cos(rotX)-z1*Math.sin(rotX), z2=y*Math.sin(rotX)+z1*Math.cos(rotX);
-        const d=3/(3+z2); return [cx + x1*s*d, cy + y1*s*d];
-      });
-      const edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-      aCtx.save();
-      aCtx.strokeStyle='rgba(96,205,255,0.8)'; aCtx.lineWidth=2; aCtx.shadowColor='rgba(96,205,255,0.5)'; aCtx.shadowBlur=8;
-      edges.forEach(e=>{ aCtx.beginPath(); aCtx.moveTo(pts[e[0]][0],pts[e[0]][1]); aCtx.lineTo(pts[e[1]][0],pts[e[1]][1]); aCtx.stroke(); });
-      aCtx.fillStyle='rgba(96,205,255,0.9)';
-      pts.forEach(p=>{ aCtx.beginPath(); aCtx.arc(p[0],p[1],4,0,Math.PI*2); aCtx.fill(); });
-      aCtx.shadowBlur=0; aCtx.fillStyle='rgba(255,255,255,0.85)'; aCtx.font='600 14px "Segoe UI", system-ui, sans-serif'; aCtx.textAlign='center';
-      aCtx.fillText('3D wireframe view (baseline)', cx, cy - 190);
-      aCtx.restore();
-    }
+
     function renderAnnotations(now) {
       aCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      if (viewMode === '2d') drawSchematic2D(now);
-      if (viewMode === '3d') drawSchematic3D(now);
+      const t = now || performance.now();
+      if (viewMode === '2d') drawSchematic2D(t);
+      if (viewMode === '3d') { /* 3D rendered on WebGL canvas; HUD below */ }
+      if (viewMode) {
+        // HUD overlay for both modes
+        const label = viewMode === '3d' ? (viewMeta.title || 'Spiegazione 3D interattiva (baseline avanzato)') : '';
+        if (label) drawGlowText(aCtx, label, window.innerWidth/2, 70, 22, 'center', '#fff');
+      }
       annotations.forEach(a => {
         const x = a.x * window.innerWidth, y = a.y * window.innerHeight;
-        aCtx.strokeStyle = 'rgba(96, 205, 255, 0.95)';
-        aCtx.fillStyle = 'rgba(96, 205, 255, 0.22)';
-        aCtx.lineWidth = 3;
-        aCtx.shadowColor = 'rgba(96, 205, 255, 0.6)';
-        aCtx.shadowBlur = 12;
+        const pulse = 0.7 + 0.3*Math.sin(t*0.004 + (x+y)*0.001);
+        aCtx.strokeStyle = `rgba(96,205,255,${0.75 + pulse*0.25})`;
+        aCtx.fillStyle = 'rgba(96,205,255,0.18)';
+        aCtx.lineWidth = 2.5;
+        aCtx.shadowColor = 'rgba(96,205,255,0.7)';
+        aCtx.shadowBlur = 14;
         if (a.type === 'BOX') {
           const w = a.w * window.innerWidth, h = a.h * window.innerHeight;
-          aCtx.strokeRect(x, y, w, h);
-          aCtx.fillRect(x, y, w, h);
+          roundRectPath(aCtx, x, y, w, h, 10); aCtx.stroke(); aCtx.fill();
         } else if (a.type === 'CIRCLE') {
           const r = (a.r || 0.05) * Math.min(window.innerWidth, window.innerHeight);
-          aCtx.beginPath();
-          aCtx.arc(x, y, r, 0, Math.PI * 2);
-          aCtx.stroke();
+          aCtx.beginPath(); aCtx.arc(x, y, r, 0, Math.PI * 2); aCtx.stroke();
+          aCtx.fillStyle = 'rgba(96,205,255,0.08)'; aCtx.fill();
         } else if (a.type === 'ARROW') {
           const x2 = a.x2 * window.innerWidth, y2 = a.y2 * window.innerHeight;
-          aCtx.beginPath();
-          aCtx.moveTo(x, y);
-          aCtx.lineTo(x2, y2);
-          aCtx.stroke();
-        } else { // POINT (default)
-          aCtx.beginPath();
-          aCtx.arc(x, y, 8, 0, Math.PI * 2);
-          aCtx.fill();
+          drawAnimatedArrow(aCtx, x, y, x2, y2, 'rgba(96,205,255,0.95)', t);
+        } else { // POINT
+          aCtx.beginPath(); aCtx.arc(x, y, 8 + pulse*2, 0, Math.PI * 2); aCtx.fillStyle = 'rgba(96,205,255,0.9)'; aCtx.fill();
+          aCtx.strokeStyle = 'rgba(255,255,255,0.7)'; aCtx.lineWidth = 1.5; aCtx.stroke();
         }
         if (a.label) {
-          aCtx.shadowBlur = 0;
-          aCtx.fillStyle = 'rgba(255,255,255,0.95)';
-          aCtx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+          aCtx.save(); aCtx.shadowBlur = 0;
+          aCtx.font = '600 13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif';
           const tw = aCtx.measureText(a.label).width;
-          aCtx.fillStyle = 'rgba(0,0,0,0.55)';
-          aCtx.fillRect(x + 10, y - 22, tw + 14, 22);
-          aCtx.fillStyle = '#fff';
-          aCtx.fillText(a.label, x + 17, y - 7);
+          const lx = x + 14, ly = y - 26;
+          aCtx.fillStyle = 'rgba(10,18,30,0.8)'; roundRectPath(aCtx, lx, ly, tw + 16, 24, 8); aCtx.fill();
+          aCtx.strokeStyle = 'rgba(96,205,255,0.5)'; aCtx.lineWidth = 1; aCtx.stroke();
+          aCtx.fillStyle = '#fff'; aCtx.textAlign = 'left'; aCtx.textBaseline = 'middle'; aCtx.fillText(a.label, lx + 8, ly + 12);
+          aCtx.restore();
         }
       });
+      if (viewMode === '3d') renderThree(t);
     }
+
+    function stopVizLoop() { if (vizAnimId) { try{cancelAnimationFrame(vizAnimId)}catch{} try{clearTimeout(vizAnimId)}catch{} vizAnimId = null; } }
     function ensureViewAnim() {
+      stopVizLoop();
       if (!viewMode) return;
-      const tick = (now) => {
-        if (!viewMode) return;
-        renderAnnotations(now);
-        requestAnimationFrame(tick);
+      const tick = () => {
+        if (!viewMode) { vizAnimId = null; return; }
+        try { renderAnnotations(performance.now()); } catch {}
+        vizAnimId = setTimeout(tick, 33); // timer-based: rAF may be frozen in overlay
       };
-      requestAnimationFrame(tick);
+      vizAnimId = setTimeout(tick, 33);
     }
+    function setViewMode(mode, meta = {}) {
+      viewMode = mode || null;
+      viewMeta = { title: meta.title || '', steps: Array.isArray(meta.steps) ? meta.steps : [], focus: meta.focus || '' };
+      if (viewMode === '3d') { buildExploded3DScene(viewMeta.title); }
+      else { hideThree(); }
+      if (!viewMode) stopVizLoop(); else ensureViewAnim();
+      renderAnnotations(performance.now());
+    }
+
     window.fckclicky?.onOverlayAnnotations?.((payload) => {
       if (payload && !Array.isArray(payload) && typeof payload === 'object') {
-        if (payload.clear) { annotations = []; viewMode = null; renderAnnotations(); return; }
-        if (payload.view === '2d' || payload.view === '3d') { viewMode = payload.view; renderAnnotations(); ensureViewAnim(); }
+        if (payload.clear) { annotations = []; setViewMode(null); renderAnnotations(); return; }
+        if (payload.view === '2d' || payload.view === '3d') {
+          setViewMode(payload.view, payload.meta || payload);
+          if (Array.isArray(payload.annotations)) annotations = payload.annotations;
+          renderAnnotations();
+          return;
+        }
         if (Array.isArray(payload.annotations)) annotations = payload.annotations;
         renderAnnotations();
         return;
@@ -289,7 +559,7 @@
     let subtitleScrollRaf = null;
     let subtitleSpeechSync = null; // { inner, text, overflow, wordEnds }
     function stopSubtitleScroll() {
-      if (subtitleScrollRaf) { cancelAnimationFrame(subtitleScrollRaf); subtitleScrollRaf = null; }
+      if (subtitleScrollRaf) { try { cancelAnimationFrame(subtitleScrollRaf); } catch {} try { clearTimeout(subtitleScrollRaf); } catch {} try { clearInterval(subtitleScrollRaf); } catch {} subtitleScrollRaf = null; }
     }
     function computeWordProgress(text, p) {
       // Map linear audio progress to progress at word boundaries (approximate word timing).
@@ -310,94 +580,115 @@
     function applySubtitleSpeechProgress(p) {
       const s = subtitleSpeechSync;
       if (!s || !s.inner || !subtitleEl || !subtitleEl.classList.contains('show')) return;
-      const overflow = s.overflow;
-      if (overflow <= 8) { s.inner.style.transform = 'translateX(0px)'; return; }
+      // external progress is authoritative: cancel fallback loop so it doesn't fight
+      if (subtitleScrollRaf) { try { cancelAnimationFrame(subtitleScrollRaf); } catch {} try { clearTimeout(subtitleScrollRaf); } catch {} subtitleScrollRaf = null; }
+      const overflow = s.overflow || 0;
+      const baseOffset = s.baseOffset || 0;
+      if (overflow <= 4) { s.inner.style.transform = `translateX(${baseOffset}px)`; return; }
       const pp = computeWordProgress(s.text, Math.min(1, Math.max(0, p || 0)));
-      // Keep a little lookahead so current word stays readable
-      const lookahead = Math.min(0.06, 18 / Math.max(1, s.text.length));
+      const lookahead = Math.min(0.04, 18 / Math.max(1, (s.text || '').length));
       const x = -overflow * Math.min(1, Math.max(0, pp + lookahead));
-      s.inner.style.transform = `translateX(${x}px)`;
+      s.inner.style.transform = `translateX(${baseOffset + x}px)`;
     }
     function startSubtitleScroll(inner, scrollMs, opts = {}) {
       stopSubtitleScroll();
       subtitleSpeechSync = null;
       if (!inner || !subtitleEl) return;
-      const containerW = subtitleEl.clientWidth;
-      const contentW = inner.scrollWidth;
-      const overflow = contentW - containerW;
-      if (overflow <= 8) {
-        inner.style.transform = 'translateX(0px)';
-        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
-        return;
-      }
-      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (prefersReduced) {
-        inner.style.transform = 'translateX(0px)';
-        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
-        return;
-      }
-      // Speech-synced mode: progress driven externally from audio currentTime.
-      if (opts.syncToSpeech) {
-        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
-        inner.style.transform = 'translateX(0px)';
-        // Fallback: if no progress events arrive, do a slow linear scroll over duration.
-        if (scrollMs && isFinite(scrollMs) && scrollMs > 0) {
-          const startAt = performance.now();
-          const step = (ts) => {
-            if (!subtitleEl.classList.contains('show') || !subtitleSpeechSync) { stopSubtitleScroll(); return; }
-            const p = Math.min(1, Math.max(0, (ts - startAt) / scrollMs));
-            inner.style.transform = `translateX(${-overflow * p}px)`;
-            if (p < 1) subtitleScrollRaf = requestAnimationFrame(step); else subtitleScrollRaf = null;
-          };
-          subtitleScrollRaf = requestAnimationFrame(step);
-        }
-        return;
-      }
-      // If a speech duration is provided, scroll once linearly across the text while speaking.
-      if (scrollMs && isFinite(scrollMs) && scrollMs > 0) {
-        const lead = 250;
-        const endPause = 400;
-        const travel = Math.max(300, scrollMs - lead - endPause);
-        const startAt = performance.now() + lead;
-        const step = (ts) => {
-          if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
-          const p = Math.min(1, Math.max(0, (ts - startAt) / travel));
-          inner.style.transform = `translateX(${-overflow * p}px)`;
-          if (p < 1) subtitleScrollRaf = requestAnimationFrame(step);
-          else subtitleScrollRaf = null;
-        };
-        subtitleScrollRaf = requestAnimationFrame(step);
-        return;
-      }
-      const speed = 60; // px/sec
-      const pause = 1200;
-      const total = overflow;
-      const duration = (total / speed) * 1000;
-      let phase = 'pauseStart';
-      let phaseStart = null;
-      const step = (ts) => {
-        if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
-        if (phaseStart == null) phaseStart = ts;
-        let x = 0;
-        if (phase === 'pauseStart') {
-          x = 0;
-          if (ts - phaseStart >= pause) { phase = 'scroll'; phaseStart = ts; }
-        } else if (phase === 'scroll') {
-          const p = Math.min(1, (ts - phaseStart) / duration);
-          x = -total * p;
-          if (p >= 1) { phase = 'pauseEnd'; phaseStart = ts; }
-        } else if (phase === 'pauseEnd') {
-          x = -total;
-          if (ts - phaseStart >= pause) { phase = 'scrollBack'; phaseStart = ts; }
-        } else if (phase === 'scrollBack') {
-          const p = Math.min(1, (ts - phaseStart) / duration);
-          x = -total * (1 - p);
-          if (p >= 1) { phase = 'pauseStart'; phaseStart = ts; }
-        }
-        inner.style.transform = `translateX(${x}px)`;
-        subtitleScrollRaf = requestAnimationFrame(step);
+
+      const startLoop = (fn) => {
+        // rAF may be throttled/frozen in transparent overlay windows; prefer timer loop
+        subtitleScrollRaf = setInterval(() => {
+          try { fn(performance.now()); } catch {}
+        }, 33);
+        return () => { try { clearInterval(subtitleScrollRaf); } catch {} subtitleScrollRaf = null; };
       };
-      subtitleScrollRaf = requestAnimationFrame(step);
+
+      const measureAndRun = () => {
+        if (!inner || !subtitleEl || !subtitleEl.classList.contains('show')) return;
+        // ensure measurable
+        const containerW = subtitleEl.clientWidth || subtitleEl.getBoundingClientRect().width || 0;
+        const contentW = inner.scrollWidth || inner.getBoundingClientRect().width || 0;
+        const overflow = Math.max(0, contentW - containerW);
+
+        if (overflow <= 4) {
+          const centerOffset = Math.max(0, (containerW - contentW) / 2);
+          inner.style.transform = `translateX(${centerOffset}px)`;
+          subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow: 0, baseOffset: centerOffset };
+          return;
+        }
+
+        const baseOffset = 0;
+        inner.style.transform = `translateX(${baseOffset}px)`;
+        const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReduced) {
+          subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow, baseOffset };
+          return;
+        }
+
+        if (opts.syncToSpeech) {
+          subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow, baseOffset };
+          // Fallback auto-scroll if external progress events are delayed/missing
+          if (scrollMs && isFinite(scrollMs) && scrollMs > 0) {
+            const startAt = performance.now();
+            startLoop((ts) => {
+              if (!subtitleEl.classList.contains('show') || !subtitleSpeechSync) { stopSubtitleScroll(); return; }
+              const p = Math.min(1, Math.max(0, (ts - startAt) / scrollMs));
+              inner.style.transform = `translateX(${baseOffset - overflow * p}px)`;
+              if (p >= 1) { stopSubtitleScroll(); }
+            });
+          }
+          return;
+        }
+
+        if (scrollMs && isFinite(scrollMs) && scrollMs > 0) {
+          const lead = 150;
+          const travel = Math.max(300, scrollMs - lead);
+          const startAt = performance.now() + lead;
+          startLoop((ts) => {
+            if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
+            const p = Math.min(1, Math.max(0, (ts - startAt) / travel));
+            inner.style.transform = `translateX(${baseOffset - overflow * p}px)`;
+            if (p >= 1) { stopSubtitleScroll(); }
+          });
+          return;
+        }
+
+        const speed = 70;
+        const pause = 1000;
+        const total = overflow;
+        const duration = (total / speed) * 1000;
+        let phase = 'pauseStart';
+        let phaseStart = null;
+        startLoop((ts) => {
+          if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
+          if (phaseStart == null) phaseStart = ts;
+          let x = 0;
+          if (phase === 'pauseStart') {
+            x = 0;
+            if (ts - phaseStart >= pause) { phase = 'scroll'; phaseStart = ts; }
+          } else if (phase === 'scroll') {
+            const p = Math.min(1, (ts - phaseStart) / duration);
+            x = -total * p;
+            if (p >= 1) { phase = 'pauseEnd'; phaseStart = ts; }
+          } else if (phase === 'pauseEnd') {
+            x = -total;
+            if (ts - phaseStart >= pause) { phase = 'scrollBack'; phaseStart = ts; }
+          } else if (phase === 'scrollBack') {
+            const p = Math.min(1, (ts - phaseStart) / duration);
+            x = -total * (1 - p);
+            if (p >= 1) { phase = 'pauseStart'; phaseStart = ts; }
+          }
+          inner.style.transform = `translateX(${baseOffset + x}px)`;
+        });
+      };
+
+      // Run immediately (if layout ready) and again shortly after to ensure correct measurements.
+      let measured = false;
+      const runOnce = () => { if (measured) return; measured = true; try { measureAndRun(); } catch {} };
+      try { runOnce(); } catch {}
+      measured = false;
+      setTimeout(runOnce, 40);
+      setTimeout(runOnce, 150);
     }
     function toSingleLineText(t) {
       return String(t || '')
@@ -420,7 +711,7 @@
       subtitleEl.appendChild(inner);
       subtitleEl.classList.add('show');
       // start scrolling after layout
-      requestAnimationFrame(() => startSubtitleScroll(inner, opts.scrollDurationMs, { text: line, syncToSpeech: !!opts.syncToSpeech }));
+      startSubtitleScroll(inner, opts.scrollDurationMs, { text: line, syncToSpeech: !!opts.syncToSpeech });
       clearTimeout(subtitleTimer);
       const baseMs = opts.scrollDurationMs ? Math.ceil(opts.scrollDurationMs) + 1500 : Math.min(45000, Math.max(8000, line.length * 90));
       const ms = opts.ms != null ? opts.ms : baseMs;

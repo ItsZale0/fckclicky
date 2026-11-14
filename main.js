@@ -821,7 +821,7 @@ ipcMain.handle('ai-chat', async (e, { messages, stream, context }) => {
   const cfg = ensureConfig();
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
   const ctxBlock = context ? buildContextBlock(context) : '';
-  const systemMsg = { role: 'system', content: 'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (0..1 = fraction of screen width/height). Also suggest quick actions as [ACTION:action_id:label].' + (ctxBlock ? ('\n\n' + ctxBlock) : '') };
+  const systemMsg = { role: 'system', content: 'You are FckClicky, a private Windows screen assistant with agentic capabilities. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language.\n\nCapabilities and tags you can emit in your response:\n- Visual annotations: [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (fraction of screen width/height).\n- On-screen schematic/3D explanations: [VIEW:2D] or [VIEW:3D] to show an animated 2D schematic or 3D visualization for in-depth explanation; include a clear textual explanation.\n- Interactive PC actions (use only when the user asks or it is clearly helpful/safe): [ACTION:mouse_move,x,y] (normalized 0..1 or pixels), [ACTION:mouse_click,x,y,button?] (button left/right/middle, coords optional), [ACTION:mouse_scroll,deltaY,x?,y?], [ACTION:type,text], [ACTION:key,keys] (SendKeys syntax).\nUse actions sparingly, explain what you are doing, and prefer safe/reversible steps.' + (ctxBlock ? ('\n\n' + ctxBlock) : '') };
   const finalMessages = Array.isArray(messages) ? [systemMsg, ...messages] : [systemMsg];
   const body = { model: cfg.chat_model || 'auto', messages: finalMessages, stream: !!stream, temperature: 0.2 };
   if (stream) {
@@ -842,7 +842,7 @@ ipcMain.handle('ai-vision', async (e, { prompt, imageBase64, stream }) => {
   const url = cfg.ai_base_url.replace(/\/$/, '') + '/chat/completions';
   const dataUrl = 'data:image/png;base64,' + imageBase64;
   const messages = [
-    { role:'system', content:'You are FckClicky, a private Windows screen assistant. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language. When pointing at UI elements, include drawing tags like [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (0..1 = fraction of screen width/height). Also suggest quick actions as [ACTION:action_id:label].' },
+    { role:'system', content:'You are FckClicky, a private Windows screen assistant with agentic capabilities. No cloud subscription. Be concise and helpful. Respond in Italian by default unless the user clearly uses another language.\n\nCapabilities and tags you can emit in your response:\n- Visual annotations: [POINT:x,y:label], [BOX:x,y,w,h:label], [ARROW:x1,y1,x2,y2:label], [CIRCLE:x,y,r:label] with normalized 0..1 coordinates (fraction of screen width/height).\n- On-screen schematic/3D explanations: [VIEW:2D] or [VIEW:3D] to show an animated 2D schematic or 3D visualization for in-depth explanation; include a clear textual explanation.\n- Interactive PC actions (use only when the user asks or it is clearly helpful/safe): [ACTION:mouse_move,x,y] (normalized 0..1 or pixels), [ACTION:mouse_click,x,y,button?] (button left/right/middle, coords optional), [ACTION:mouse_scroll,deltaY,x?,y?], [ACTION:type,text], [ACTION:key,keys] (SendKeys syntax).\nUse actions sparingly, explain what you are doing, and prefer safe/reversible steps.' },
     { role:'user', content:[ {type:'text', text: prompt}, {type:'image_url', image_url:{url:dataUrl}} ] }
   ];
   const body = { model: cfg.vision_model || cfg.chat_model || 'auto', messages, stream: !!stream, temperature: 0.2 };
@@ -1330,3 +1330,96 @@ function startMainAppUI() {
 
 ipcMain.handle('renderer-log', (e, msg) => { console.log('[renderer]', typeof msg === 'string' ? msg : JSON.stringify(msg)); return true; });
 ipcMain.handle('quit-app', () => app.quit());
+
+// ===== Agentic PC input actions (mouse/keyboard automation) =====
+function runPowerShell(script, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { windowsHide: true, timeout }, (err, stdout, stderr) => {
+      if (err) return reject(new Error((stderr || stdout || err.message || String(err)).trim().slice(0, 500)));
+      resolve(String(stdout || '').trim());
+    });
+  });
+}
+
+ipcMain.handle('input-mouse-move', async (e, { x, y, smooth, durationMs }) => {
+  const tx = Math.round(Number(x)), ty = Math.round(Number(y));
+  if (!isFinite(tx) || !isFinite(ty)) throw new Error('Invalid coordinates');
+  if (smooth) {
+    const dur = Math.max(50, Math.min(5000, Number(durationMs) || 300));
+    const steps = Math.max(5, Math.round(dur / 16));
+    const ps = `
+Add-Type -AssemblyName System.Windows.Forms
+$start = [System.Windows.Forms.Cursor]::Position
+$sx=[int]$start.X; $sy=[int]$start.Y; $tx=${tx}; $ty=${ty}; $steps=${steps}; $dur=${dur}
+for($i=1;$i -le $steps;$i++){
+  $t=$i/$steps
+  # ease in-out
+  if($t -lt 0.5){ $e=2*$t*$t } else { $e=-1+(4-2*$t)*$t }
+  $nx=[int]($sx + ($tx-$sx)*$e); $ny=[int]($sy + ($ty-$sy)*$e)
+  [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($nx,$ny)
+  Start-Sleep -Milliseconds ([int]($dur/$steps))
+}
+`;
+    await runPowerShell(ps, dur + 3000);
+  } else {
+    await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${tx},${ty})`);
+  }
+  return { ok: true, x: tx, y: ty };
+});
+
+ipcMain.handle('input-mouse-click', async (e, { x, y, button, double } = {}) => {
+  const btn = (button || 'left').toLowerCase();
+  const down = btn === 'right' ? '0x0008' : (btn === 'middle' ? '0x0020' : '0x0002');
+  const up = btn === 'right' ? '0x0010' : (btn === 'middle' ? '0x0040' : '0x0004');
+  const movePart = (isFinite(Number(x)) && isFinite(Number(y)))
+    ? `[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${Math.round(Number(x))},${Math.round(Number(y))}); Start-Sleep -Milliseconds 30;`
+    : '';
+  const clicks = double ? 2 : 1;
+  const ps = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags,uint dx,uint dy,uint dwData,int dwExtraInfo);' -Name U32 -Namespace W
+${movePart}
+for($i=0;$i -lt ${clicks};$i++){
+  [W.U32]::mouse_event(${down},0,0,0,0); Start-Sleep -Milliseconds 20; [W.U32]::mouse_event(${up},0,0,0,0)
+  if($i -lt ${clicks - 1}){ Start-Sleep -Milliseconds 60 }
+}
+`;
+  await runPowerShell(ps, 8000);
+  return { ok: true };
+});
+
+ipcMain.handle('input-mouse-scroll', async (e, { deltaY, x, y } = {}) => {
+  const delta = Math.max(-12000, Math.min(12000, Math.round(Number(deltaY) || -120)));
+  const movePart = (isFinite(Number(x)) && isFinite(Number(y)))
+    ? `[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${Math.round(Number(x))},${Math.round(Number(y))}); Start-Sleep -Milliseconds 20;`
+    : '';
+  const ps = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags,uint dx,uint dy,int dwData,int dwExtraInfo);' -Name U32 -Namespace W
+${movePart}
+[W.U32]::mouse_event(0x0800,0,0,${delta},0)
+`;
+  await runPowerShell(ps, 5000);
+  return { ok: true };
+});
+
+ipcMain.handle('input-key', async (e, { keys, text } = {}) => {
+  if (text) {
+    // Type arbitrary text via clipboard paste (reliable for unicode)
+    clipboard.writeText(String(text));
+    await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`, 5000);
+    return { ok: true, mode: 'text' };
+  }
+  const seq = String(keys || '').trim();
+  if (!seq) throw new Error('No keys provided');
+  // keys in SendKeys syntax, e.g. ^c, {ENTER}, %{F4}
+  const escaped = seq.replace(/'/g, "''");
+  await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')`, 5000);
+  return { ok: true, mode: 'keys' };
+});
+
+ipcMain.handle('input-get-cursor', async () => {
+  const out = await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; $p=[System.Windows.Forms.Cursor]::Position; Write-Output ($p.X.ToString()+','+$p.Y.ToString())`);
+  const [x, y] = String(out).trim().split(',').map(n => parseInt(n, 10));
+  return { x: isFinite(x) ? x : 0, y: isFinite(y) ? y : 0 };
+});

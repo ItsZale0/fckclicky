@@ -727,6 +727,7 @@ async function stopVoice() {
 
     answer = (answer || '').trim() || 'No response from the model.';
     try { syncAnnotations(answer); } catch {}
+    try { await executeAgentActions(answer); } catch {}
     uiSound.success();
     // Keep showing "Thinking..." until speech starts (avoid flashing "Press Ctrl+Alt..." between thinking and speaking)
     setStatus(COPY.thinking, 'thinking');
@@ -864,10 +865,61 @@ function syncAnnotations(text) {
     if (m[7]) a.label = m[7].trim();
     list.push(a);
   }
-  const viewMatch = String(text).match(/\[VIEW:(2D|3D)\]/i);
-  const payload = viewMatch ? { view: viewMatch[1].toLowerCase(), annotations: list } : list;
+  const viewMatch = String(text).match(/\[VIEW:(2D|3D)(?::([^\]]+))?\]/i);
+  const payload = viewMatch ? { view: viewMatch[1].toLowerCase(), meta: { title: (viewMatch[2]||'').trim() }, annotations: list } : list;
   if ((Array.isArray(payload) && payload.length) || (payload && payload.view)) {
     try { window.fckclicky.setOverlayAnnotations(payload); } catch {}
+  }
+}
+
+async function executeAgentActions(text) {
+  if (!text) return;
+  const src = String(text);
+  const re = /\[ACTION:([a-z_]+)(?::([^\]]*))?\]/ig;
+  const actions = [];
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    actions.push({ type: (m[1] || '').toLowerCase(), args: (m[2] || '').split(',').map(s => s.trim()) });
+  }
+  if (!actions.length) return;
+
+  const toCoord = async (vx, vy) => {
+    let x = parseFloat(vx), y = parseFloat(vy);
+    if (!isFinite(x) || !isFinite(y)) return null;
+    // treat 0..1 as normalized screen coords
+    if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+      const w = window.screen?.width || 1920, h = window.screen?.height || 1080;
+      x = Math.round(x * w); y = Math.round(y * h);
+    } else {
+      x = Math.round(x); y = Math.round(y);
+    }
+    return { x, y };
+  };
+
+  for (const a of actions) {
+    try {
+      if (a.type === 'mouse_move') {
+        const p = await toCoord(a.args[0], a.args[1]);
+        if (p && window.fckclicky?.inputMouseMove) await window.fckclicky.inputMouseMove({ ...p, smooth: true, durationMs: 350 });
+      } else if (a.type === 'mouse_click') {
+        const p = (a.args[0] !== '' && a.args[1] !== '') ? await toCoord(a.args[0], a.args[1]) : null;
+        const button = (a.args[2] || 'left').toLowerCase();
+        if (window.fckclicky?.inputMouseClick) await window.fckclicky.inputMouseClick(p ? { ...p, button } : { button });
+      } else if (a.type === 'mouse_scroll') {
+        const deltaY = parseFloat(a.args[0] || '-240');
+        const p = (a.args[1] && a.args[2]) ? await toCoord(a.args[1], a.args[2]) : null;
+        if (window.fckclicky?.inputMouseScroll) await window.fckclicky.inputMouseScroll(p ? { deltaY, ...p } : { deltaY });
+      } else if (a.type === 'type') {
+        const text = a.args.join(',').trim();
+        if (text && window.fckclicky?.inputKey) await window.fckclicky.inputKey({ text });
+      } else if (a.type === 'key') {
+        const keys = a.args.join(',').trim();
+        if (keys && window.fckclicky?.inputKey) await window.fckclicky.inputKey({ keys });
+      }
+    } catch (e) {
+      try { window.fckclicky?.log?.('action error ' + a.type + ': ' + (e?.message || e)); } catch {}
+    }
+    await new Promise(r => setTimeout(r, 120));
   }
 }
 
