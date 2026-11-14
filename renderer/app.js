@@ -700,11 +700,10 @@ async function stopVoice() {
     if (!transcript) {
       uiSound.error();
       setStatus(COPY.ready, 'ok');
-      showTranscript('Could not understand audio (empty transcription). Check STT/API settings.');
+      try { window.fckclicky?.setOverlaySubtitle?.({ text: 'Audio non compreso. Controlla le impostazioni STT/API.', markdown: false, ms: 8000 }); } catch {}
       return;
     }
 
-    showTranscript('You: ' + transcript, 6000);
     setStatus(COPY.thinking, 'thinking');
 
     // Capture screen (use selected area if available) and ask vision/chat
@@ -728,9 +727,14 @@ async function stopVoice() {
     uiSound.success();
     setStatus(COPY.ready, 'ok');
     try { transcriptEl?.classList.remove('show'); } catch {}
-    try { window.fckclicky?.setOverlaySubtitle?.({ text: answer, markdown: true, ms: 30000 }); } catch {}
-    showTranscript(answer, 15000);
 
+    // Show answer as subtitles. If TTS plays, scrolling will be synced to speech duration.
+    let subtitleShown = false;
+    const showAnswerSubtitle = (opts = {}) => {
+      if (subtitleShown) return;
+      subtitleShown = true;
+      try { window.fckclicky?.setOverlaySubtitle?.({ text: answer, markdown: false, ms: 30000, ...opts }); } catch {}
+    };
     // Optional TTS
     try {
       stopSpeaking(false);
@@ -756,10 +760,26 @@ async function stopVoice() {
           };
           audio.onended = finish;
           audio.onerror = finish;
-          await audio.play().catch(finish);
+          const startWithDuration = () => {
+            const dur = (isFinite(audio.duration) && audio.duration > 0) ? audio.duration * 1000 : null;
+            showAnswerSubtitle(dur ? { scrollDurationMs: Math.max(1500, dur), ms: Math.max(5000, Math.ceil(dur) + 1500) } : {});
+          };
+          if (isFinite(audio.duration) && audio.duration > 0) {
+            startWithDuration();
+          } else {
+            audio.addEventListener('loadedmetadata', startWithDuration, { once: true });
+            // fallback in case metadata never fires
+            setTimeout(() => { if (!subtitleShown) startWithDuration(); }, 400);
+          }
+          await audio.play().catch((e) => { if (!subtitleShown) showAnswerSubtitle({}); finish(); });
+        } else {
+          showAnswerSubtitle({});
         }
+      } else {
+        showAnswerSubtitle({});
       }
     } catch (_) {
+      showAnswerSubtitle({});
       // ignore TTS errors
     }
   } catch (err) {
@@ -768,7 +788,7 @@ async function stopVoice() {
     const msg = err?.stack || err?.message || String(err);
     try { window.fckclicky?.log?.('voice flow error: ' + msg); } catch {}
     setStatus(('Error: ' + (err?.message || msg)).slice(0, 200), 'error');
-    showTranscript('Error: ' + msg, 20000);
+    try { window.fckclicky?.setOverlaySubtitle?.({ text: 'Errore: ' + (err?.message || msg), markdown: false, ms: 12000 }); } catch {}
   }
 }
 
