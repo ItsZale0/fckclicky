@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('fckclicky', {
   captureScreen: (opts) => ipcRenderer.invoke('capture-screen', opts),
   typeText: (text) => ipcRenderer.invoke('type-text', text),
   setOverlaySubtitle: (payload) => ipcRenderer.invoke('overlay-set-subtitle', payload),
+  setOverlaySubtitleProgress: (progress) => ipcRenderer.invoke('overlay-set-subtitle-progress', progress),
 
   // ===== Setup / Local Whisper =====
   openSetup: () => ipcRenderer.invoke('open-setup'),
@@ -47,6 +48,7 @@ contextBridge.exposeInMainWorld('fckclicky', {
   onOverlayDraw: (cb) => ipcRenderer.on('overlay-draw', (e, data) => cb(data)),
   onOverlayInteractive: (cb) => ipcRenderer.on('overlay-interactive', (e, v) => cb(v)),
   onOverlaySubtitle: (cb) => ipcRenderer.on('overlay-subtitle', (e, d) => cb(d)),
+  onOverlaySubtitleProgress: (cb) => ipcRenderer.on('overlay-subtitle-progress', (e, d) => cb(d)),
   onOverlayMode: (cb) => ipcRenderer.on('overlay-set-mode', (e, d) => cb(d)),
   overlaySetInteractive: (v) => ipcRenderer.invoke('overlay-set-interactive', v),
   reportSelection: (rect) => ipcRenderer.invoke('overlay-report-selection', rect),

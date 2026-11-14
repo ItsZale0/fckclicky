@@ -214,22 +214,70 @@
     }
     let subtitleTimer = null;
     let subtitleScrollRaf = null;
+    let subtitleSpeechSync = null; // { inner, text, overflow, wordEnds }
     function stopSubtitleScroll() {
       if (subtitleScrollRaf) { cancelAnimationFrame(subtitleScrollRaf); subtitleScrollRaf = null; }
     }
-    function startSubtitleScroll(inner, scrollMs) {
+    function computeWordProgress(text, p) {
+      // Map linear audio progress to progress at word boundaries (approximate word timing).
+      const t = String(text || '');
+      if (!t.length) return 0;
+      const ends = [];
+      let inWord = false;
+      for (let i = 0; i < t.length; i++) {
+        const ws = /\s/.test(t[i]);
+        if (!ws) inWord = true;
+        if (inWord && ws) { ends.push(i); inWord = false; }
+      }
+      ends.push(t.length);
+      if (ends.length <= 1) return Math.min(1, Math.max(0, p));
+      const idx = Math.min(ends.length - 1, Math.max(0, Math.floor(p * ends.length)));
+      return ends[idx] / t.length;
+    }
+    function applySubtitleSpeechProgress(p) {
+      const s = subtitleSpeechSync;
+      if (!s || !s.inner || !subtitleEl || !subtitleEl.classList.contains('show')) return;
+      const overflow = s.overflow;
+      if (overflow <= 8) { s.inner.style.transform = 'translateX(0px)'; return; }
+      const pp = computeWordProgress(s.text, Math.min(1, Math.max(0, p || 0)));
+      // Keep a little lookahead so current word stays readable
+      const lookahead = Math.min(0.06, 18 / Math.max(1, s.text.length));
+      const x = -overflow * Math.min(1, Math.max(0, pp + lookahead));
+      s.inner.style.transform = `translateX(${x}px)`;
+    }
+    function startSubtitleScroll(inner, scrollMs, opts = {}) {
       stopSubtitleScroll();
+      subtitleSpeechSync = null;
       if (!inner || !subtitleEl) return;
       const containerW = subtitleEl.clientWidth;
       const contentW = inner.scrollWidth;
       const overflow = contentW - containerW;
       if (overflow <= 8) {
         inner.style.transform = 'translateX(0px)';
+        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
         return;
       }
       const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (prefersReduced) {
         inner.style.transform = 'translateX(0px)';
+        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
+        return;
+      }
+      // Speech-synced mode: progress driven externally from audio currentTime.
+      if (opts.syncToSpeech) {
+        subtitleSpeechSync = { inner, text: opts.text || inner.textContent || '', overflow };
+        inner.style.transform = 'translateX(0px)';
+        // Fallback: if no progress events arrive, do a slow linear scroll over duration.
+        if (scrollMs && isFinite(scrollMs) && scrollMs > 0) {
+          const startAt = performance.now();
+          const step = (ts) => {
+            if (!subtitleEl.classList.contains('show') || !subtitleSpeechSync) { stopSubtitleScroll(); return; }
+            const p = Math.min(1, Math.max(0, (ts - startAt) / scrollMs));
+            inner.style.transform = `translateX(${-overflow * p}px)`;
+            if (p < 1) subtitleScrollRaf = requestAnimationFrame(step); else subtitleScrollRaf = null;
+          };
+          subtitleScrollRaf = requestAnimationFrame(step);
+        }
         return;
       }
       // If a speech duration is provided, scroll once linearly across the text while speaking.
@@ -252,7 +300,7 @@
       const pause = 1200;
       const total = overflow;
       const duration = (total / speed) * 1000;
-      let phase = 'pauseStart'; // pauseStart -> scroll -> pauseEnd -> scrollBack
+      let phase = 'pauseStart';
       let phaseStart = null;
       const step = (ts) => {
         if (!subtitleEl.classList.contains('show')) { stopSubtitleScroll(); return; }
@@ -299,21 +347,29 @@
       subtitleEl.appendChild(inner);
       subtitleEl.classList.add('show');
       // start scrolling after layout
-      requestAnimationFrame(() => startSubtitleScroll(inner, opts.scrollDurationMs));
+      requestAnimationFrame(() => startSubtitleScroll(inner, opts.scrollDurationMs, { text: line, syncToSpeech: !!opts.syncToSpeech }));
       clearTimeout(subtitleTimer);
-      const baseMs = opts.scrollDurationMs ? Math.ceil(opts.scrollDurationMs) + 1200 : Math.min(45000, Math.max(8000, line.length * 90));
+      const baseMs = opts.scrollDurationMs ? Math.ceil(opts.scrollDurationMs) + 1500 : Math.min(45000, Math.max(8000, line.length * 90));
       const ms = opts.ms != null ? opts.ms : baseMs;
       if (ms > 0) subtitleTimer = setTimeout(hideSubtitle, ms);
     }
     function hideSubtitle() {
       clearTimeout(subtitleTimer);
       stopSubtitleScroll();
+      subtitleSpeechSync = null;
       subtitleEl?.classList.remove('show');
     }
     if (window.fckclicky?.onOverlaySubtitle) {
       window.fckclicky.onOverlaySubtitle((payload) => {
         if (!payload || payload.clear || payload.text === '' || payload.text == null) { hideSubtitle(); return; }
-        showSubtitle(payload.text, { markdown: payload.markdown !== false, ms: payload.ms, scrollDurationMs: payload.scrollDurationMs });
+        showSubtitle(payload.text, { markdown: payload.markdown !== false, ms: payload.ms, scrollDurationMs: payload.scrollDurationMs, syncToSpeech: !!payload.syncToSpeech });
+      });
+    }
+    if (window.fckclicky?.onOverlaySubtitleProgress) {
+      window.fckclicky.onOverlaySubtitleProgress((p) => {
+        // When real playback progress arrives, stop fallback RAF and follow audio.
+        stopSubtitleScroll();
+        applySubtitleSpeechProgress(p && typeof p === 'object' ? p.progress : p);
       });
     }
 

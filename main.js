@@ -705,6 +705,10 @@ ipcMain.handle('overlay-set-subtitle', (e, payload) => {
   } catch {}
   overlayWin.webContents.send('overlay-subtitle', payload);
 });
+ipcMain.handle('overlay-set-subtitle-progress', (e, progress) => {
+  try { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('overlay-subtitle-progress', progress); } catch {}
+  return true;
+});
 ipcMain.handle('overlay-set-annotations', (e, payload) => {
   if (!overlayWin) createOverlayWindow();
   const list = Array.isArray(payload) ? payload : (payload ? [payload] : []);

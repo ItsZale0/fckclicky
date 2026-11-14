@@ -760,9 +760,28 @@ async function stopVoice() {
           };
           audio.onended = finish;
           audio.onerror = finish;
+          let progressRaf = null;
+          const stopProgress = () => { if (progressRaf) { cancelAnimationFrame(progressRaf); progressRaf = null; } };
+          const sendProgress = () => {
+            if (currentTtsAudio !== audio) { stopProgress(); return; }
+            const dur = audio.duration;
+            if (isFinite(dur) && dur > 0) {
+              try { window.fckclicky?.setOverlaySubtitleProgress?.(Math.min(1, Math.max(0, audio.currentTime / dur))); } catch {}
+            }
+            progressRaf = requestAnimationFrame(sendProgress);
+          };
+          const origFinish = finish;
+          const finishWithProgress = () => { stopProgress(); origFinish(); };
+          audio.onended = finishWithProgress;
+          audio.onerror = finishWithProgress;
+
           const startWithDuration = () => {
             const dur = (isFinite(audio.duration) && audio.duration > 0) ? audio.duration * 1000 : null;
-            showAnswerSubtitle(dur ? { scrollDurationMs: Math.max(1500, dur), ms: Math.max(5000, Math.ceil(dur) + 1500) } : {});
+            if (dur) {
+              showAnswerSubtitle({ scrollDurationMs: Math.max(1500, dur), ms: Math.max(5000, Math.ceil(dur) + 1500), syncToSpeech: true });
+            } else {
+              showAnswerSubtitle({});
+            }
           };
           if (isFinite(audio.duration) && audio.duration > 0) {
             startWithDuration();
@@ -771,7 +790,9 @@ async function stopVoice() {
             // fallback in case metadata never fires
             setTimeout(() => { if (!subtitleShown) startWithDuration(); }, 400);
           }
-          await audio.play().catch((e) => { if (!subtitleShown) showAnswerSubtitle({}); finish(); });
+          audio.addEventListener('play', () => { stopProgress(); progressRaf = requestAnimationFrame(sendProgress); }, { once: true });
+          audio.addEventListener('pause', stopProgress);
+          await audio.play().catch((e) => { if (!subtitleShown) showAnswerSubtitle({}); finishWithProgress(); });
         } else {
           showAnswerSubtitle({});
         }
